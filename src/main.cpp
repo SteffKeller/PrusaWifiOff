@@ -7,26 +7,29 @@ const char* WIFI_SSID = "diveintothenet";
 const char* WIFI_PASS = "dtn24steffshome67L";
 
 constexpr int INPUT_PIN = 23;              // dein Eingang
-constexpr int INPUT_PIN_OVERRIDE = 33;              // dein Eingang
+constexpr int INPUT_PIN_OVERRIDE = 39;              // dein Eingang
 
-constexpr uint32_t DEBOUNCE_MS = 60;
-//constexpr uint32_t OFF_DELAY_MS = 10UL * 60UL * 1000UL; // 10 Minuten
-constexpr uint32_t OFF_DELAY_MS = 10UL * 1000UL; // 10 sec
-
+constexpr uint32_t DEBOUNCE_MS   = 60;
+constexpr uint32_t OFF_DELAY_MS  = 10UL * 1000UL; // 10 sec
 
 const char* URL_TOGGLE = "http://192.168.188.44/toggle";
-// Falls es für AUS einen anderen Endpunkt gibt, hier eintragen:
-const char* URL_OFF = "http://192.168.188.44/relay?state=0";
+const char* URL_OFF    = "http://192.168.188.44/relay?state=0";
 
-bool lastState = HIGH;
+// Eingang 23
+bool lastState        = HIGH;
 uint32_t lastChangeMs = 0;
+
+// Override-Button (33)
+bool overrideEnabled          = true;   // false = OFF, true = ON
+bool overrideLastState        = HIGH;    // letzter Tasterzustand
+uint32_t overrideLastChangeMs = 0;
 
 // Timer-Logik
 bool offTimerRunning = false;
 uint32_t offTimerStart = 0;
 
-void showOn();
-void showOff();
+void showOverrideOn();
+void showOverrideOff();
 
 void sendGet(const char* url) {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -45,14 +48,8 @@ void sendToggle() {
   sendGet(URL_TOGGLE);
 }
 
-// Wenn dein Switch wirklich nur /toggle kennt, kannst du hier auch einfach sendToggle() aufrufen.
-// Dann wird nach 10 min erneut getoggelt (also aus, wenn er vorher ein war).
 void sendOff() {
-  // Variante 1: eigener OFF-Endpunkt
   sendGet(URL_OFF);
-
-  // Variante 2: erneut toggle (falls der Schalter dann sicher „aus“ ist)
-  // sendToggle();
 }
 
 void ensureWifi() {
@@ -77,74 +74,127 @@ void ensureWifi() {
   }
 }
 
+// Anzeige: Override EIN = rotes "X"
+void showOverrideOn() {
+  M5.dis.clear();
+  // Hintergrund leicht rot
+  M5.dis.fillpix(0x000000);
+
+  // einfaches "X" in rot auf der 5x5-Matrix
+  // Koordinaten (x,y), 0..4 [web:114][web:116]
+  uint32_t col = 0x0000FF;
+  M5.dis.drawpix(0, 0, col);
+  M5.dis.drawpix(1, 1, col);
+  M5.dis.drawpix(2, 2, col);
+  M5.dis.drawpix(3, 3, col);
+  M5.dis.drawpix(4, 4, col);
+
+  M5.dis.drawpix(4, 0, col);
+  M5.dis.drawpix(3, 1, col);
+  M5.dis.drawpix(2, 2, col);
+  M5.dis.drawpix(1, 3, col);
+  M5.dis.drawpix(0, 4, col);
+}
+
+// Anzeige: Override AUS = grünes "I"
+void showOverrideOff() {
+  M5.dis.clear();
+  // Hintergrund leicht grün
+  M5.dis.fillpix(0x000000);
+
+  uint32_t col = 0x00FF00;
+  // Einfaches "I" in der Mitte
+  M5.dis.drawpix(2, 0, col);
+  M5.dis.drawpix(2, 1, col);
+  M5.dis.drawpix(2, 2, col);
+  M5.dis.drawpix(2, 3, col);
+  M5.dis.drawpix(2, 4, col);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(200);
 
- M5.begin(true, false, true);  // Serial an, I2C aus, Display/LED an [web:116]
+  M5.begin(true, false, true);  // Display/LED an [web:116]
 
-  pinMode(INPUT_PIN, INPUT_PULLUP);
+  pinMode(INPUT_PIN,          INPUT_PULLUP);
   pinMode(INPUT_PIN_OVERRIDE, INPUT_PULLUP);
 
-
   ensureWifi();
-  lastState = digitalRead(INPUT_PIN);
+
+  lastState         = digitalRead(INPUT_PIN);
+  overrideLastState = digitalRead(INPUT_PIN_OVERRIDE);
+
+  // Startanzeige: Override AUS
+  overrideEnabled = false;
+  showOverrideOff();
 }
 
 void loop() {
   ensureWifi();
-
-  bool s = digitalRead(INPUT_PIN);
   uint32_t now = millis();
 
-  if(digitalRead(INPUT_PIN_OVERRIDE) == HIGH) {
+  // 1) Override-Taster einlesen + entprellen + toggeln
+  bool ovReading = digitalRead(INPUT_PIN_OVERRIDE);
+  if (ovReading != overrideLastState && (now - overrideLastChangeMs) > 10) {
+    overrideLastChangeMs = now;
+    overrideLastState = ovReading;
+      Serial.printf("Override pressed \n" );
 
-    
-    // Entprellung + Flankenerkennung
-  if (s != lastState && (now - lastChangeMs) > DEBOUNCE_MS) {
-    lastChangeMs = now;
-    lastState = s;
-    
-    if (s == LOW) {
-      // Eingang wurde auf GND gezogen -> Timer starten
-      offTimerRunning = true;
-      offTimerStart = now;
-      Serial.println("Input LOW -> 10min-Timer gestartet");
-      showOn();
+    // Flanke HIGH -> LOW = Button gedrückt
+    if (ovReading == LOW) {
+      overrideEnabled = !overrideEnabled;  // Zustand toggeln
+      Serial.printf("Override toggled -> %s\n", overrideEnabled ? "ON" : "OFF");
 
-    } else { 
-      // Eingang wieder HIGH -> Timer abbrechen
-      offTimerRunning = false;
-      Serial.println("Input HIGH -> Timer abgebrochen");
-      showOff();
+      if (overrideEnabled) {
+        // Override aktiviert: Timer abbrechen und "X" anzeigen
+        if (offTimerRunning) {
+          offTimerRunning = false;
+          Serial.println("Override ON -> Timer abgebrochen");
+        }
+        showOverrideOn();
+      } else {
+        // Override deaktiviert: Anzeige "I"
+        showOverrideOff();
+      }
     }
   }
+
+  // 2) Nur wenn Override AUS ist, Eingang 23 auswerten
+  if (!overrideEnabled) {
+    bool s = digitalRead(INPUT_PIN);
+
+    // Entprellung + Flankenerkennung für Eingang 23
+    if (s != lastState && (now - lastChangeMs) > DEBOUNCE_MS) {
+      lastChangeMs = now;
+      lastState = s;
+
+      if (s == LOW) {
+        // Eingang auf GND -> Timer starten
+        offTimerRunning = true;
+        offTimerStart = now;
+        Serial.println("Input LOW -> Timer gestartet");
+      } else {
+        // Eingang wieder HIGH -> Timer abbrechen
+        offTimerRunning = false;
+        Serial.println("Input HIGH -> Timer abgebrochen");
+      }
+    }
   } else {
-    // Override aktiv, Timer zurücksetzen
+    // Override EIN: Sicherheitshalber Timer stoppen
     if (offTimerRunning) {
       offTimerRunning = false;
-      Serial.println("Override aktiv -> Timer abgebrochen");
-      showOn();
+      // nur einmal loggen
+      Serial.println("Override EIN -> Timer gestoppt");
     }
   }
 
-  // Timer überwachen, ohne delay() zu blockieren [web:71][web:76]
+  // 3) Timer überwachen (unabhängig von Anzeige, aber Override kann ihn schon gestoppt haben)
   if (offTimerRunning && (now - offTimerStart >= OFF_DELAY_MS)) {
     offTimerRunning = false;
-    Serial.println("10min abgelaufen -> Switch AUS");
+    Serial.println("Timer abgelaufen -> Switch AUS");
     sendOff();
   }
 
   delay(5);
-}
-
-void showOn() {
-  // komplette Matrix / LED grün
-  M5.dis.fillpix(0x00FF00);  // ON [web:116]
-  M5.dis.drawpix(1,1,0x0000FF); // Punkt in der Mitte aus
-}
-
-void showOff() {
-  // komplette Matrix / LED rot
-  M5.dis.fillpix(0xFF0000);  // OFF [web:116]
 }
