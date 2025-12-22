@@ -1,5 +1,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <M5Atom.h>
+
 
 const char* WIFI_SSID = "diveintothenet";
 const char* WIFI_PASS = "dtn24steffshome67L";
@@ -22,6 +24,9 @@ uint32_t lastChangeMs = 0;
 // Timer-Logik
 bool offTimerRunning = false;
 uint32_t offTimerStart = 0;
+
+void showOn();
+void showOff();
 
 void sendGet(const char* url) {
   if (WiFi.status() != WL_CONNECTED) return;
@@ -76,6 +81,8 @@ void setup() {
   Serial.begin(115200);
   delay(200);
 
+ M5.begin(true, false, true);  // Serial an, I2C aus, Display/LED an [web:116]
+
   pinMode(INPUT_PIN, INPUT_PULLUP);
   pinMode(INPUT_PIN_OVERRIDE, INPUT_PULLUP);
 
@@ -90,7 +97,7 @@ void loop() {
   bool s = digitalRead(INPUT_PIN);
   uint32_t now = millis();
 
-  if(digitalRead(INPUT_PIN_OVERRIDE) == LOW) {
+  if(digitalRead(INPUT_PIN_OVERRIDE) == HIGH) {
 
     
     // Entprellung + Flankenerkennung
@@ -103,10 +110,13 @@ void loop() {
       offTimerRunning = true;
       offTimerStart = now;
       Serial.println("Input LOW -> 10min-Timer gestartet");
+      showOn();
+
     } else { 
       // Eingang wieder HIGH -> Timer abbrechen
       offTimerRunning = false;
       Serial.println("Input HIGH -> Timer abgebrochen");
+      showOff();
     }
   }
   } else {
@@ -114,6 +124,7 @@ void loop() {
     if (offTimerRunning) {
       offTimerRunning = false;
       Serial.println("Override aktiv -> Timer abgebrochen");
+      showOn();
     }
   }
 
@@ -125,4 +136,15 @@ void loop() {
   }
 
   delay(5);
+}
+
+void showOn() {
+  // komplette Matrix / LED grün
+  M5.dis.fillpix(0x00FF00);  // ON [web:116]
+  M5.dis.drawpix(1,1,0x0000FF); // Punkt in der Mitte aus
+}
+
+void showOff() {
+  // komplette Matrix / LED rot
+  M5.dis.fillpix(0xFF0000);  // OFF [web:116]
 }
