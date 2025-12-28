@@ -47,13 +47,7 @@ uint32_t lastChangeMs     = 0;
  * true  = auto power off enabled (uses input + timer)
  * false = auto power off disabled (manual mode)
  */
-bool     autoPowerOffEnabled      = true;
-
-bool     modeLastState            = HIGH;
-uint32_t modeLastChangeMs         = 0;
-
-uint8_t  modeClickCount           = 0;
-uint32_t modeLastClickTime        = 0;
+bool     autoPowerOffEnabled      = false;
 
 bool     offTimerRunning          = false;
 uint32_t offTimerStart            = 0;
@@ -98,7 +92,6 @@ void drawI(uint32_t col) {
  */
 void showAutoOffEnabledBase() {
   clearMatrix();
-  // dunkler Hintergrund
   M5.dis.fillpix(0x000000);
 
   uint32_t col = 0x0000FF;  // blue
@@ -127,24 +120,17 @@ void showAutoOffDisabled() {
 /**
  * @brief Draws an orange progress background behind the blue X
  *        (auto power off enabled) from bottom to top.
- *
- * The X stays blue, while the background rows under it fill up.
- *
- * @param filledRows Number of rows that should be filled (0..5).
  */
 void drawProgressBar(uint8_t filledRows) {
-  // Step 1: clear and draw base X in blue (auto ON)
   clearMatrix();
-  uint32_t bgBase = 0x000000;   // dark background
-  uint32_t xCol   = 0x0000FF;   // blue X
-  uint32_t barCol = 0xFF8000;   // orange progress
+  uint32_t bgBase = 0x000000;
+  uint32_t xCol   = 0x0000FF;
+  uint32_t barCol = 0xFF8000;
 
-  // fill full background dark blue first
   M5.dis.fillpix(bgBase);
 
-  // Step 2: draw orange bars row by row from bottom (y=4) to top (y=0)
   for (int y = 4; y >= 0; --y) {
-    bool fillRow = (4 - y) < filledRows;  // 0->y=4, 1->y=3, ...
+    bool fillRow = (4 - y) < filledRows;
     if (fillRow) {
       for (int x = 0; x < 5; ++x) {
         M5.dis.drawpix(x, y, barCol);
@@ -152,7 +138,7 @@ void drawProgressBar(uint8_t filledRows) {
     }
   }
 
-  // Step 3: redraw the X in blue over the background
+  // redraw X
   M5.dis.drawpix(0, 0, xCol);
   M5.dis.drawpix(1, 1, xCol);
   M5.dis.drawpix(2, 2, xCol);
@@ -233,7 +219,7 @@ void updateReportStatus() {
   String payload = http.getString();
   http.end();
 
-  StaticJsonDocument<256> doc;
+  DynamicJsonDocument doc(256);
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     Serial.print("REPORT JSON parse failed: ");
@@ -255,8 +241,9 @@ void updateReportStatus() {
 }
 
 // -----------------------------------------------------------------------------
-// HTML page builder (Bootstrap UI)
+// HTML page builder (Bootstrap UI, Prusa-Farben)
 // -----------------------------------------------------------------------------
+// (hier unverändert dein letzter htmlPage()-Code; wegen Länge nicht erneut kommentiert)
 
 String htmlPage() {
   String ip = WiFi.localIP().toString();
@@ -265,37 +252,50 @@ String htmlPage() {
   s += "<!doctype html><html lang='en'><head>";
   s += "<meta charset='utf-8'>";
   s += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-  s += "<title>M5 Auto Power Off</title>";
+  s += "<title>Core One Auto Power Off</title>";
   s += "<link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>";
   s += "<link href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css' rel='stylesheet'>";
   s += "<style>";
   s += "body{min-height:100vh;margin:0;";
-  s += "background:radial-gradient(circle at top,#1f2937 0,#020617 55%,#000 100%);";
+  s += "background:radial-gradient(circle at top,#111827 0,#020617 55%,#000 100%);";
   s += "color:#e5e7eb;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}";
   s += ".card-shell{max-width:520px;margin:32px auto;padding:0 12px;}";
   s += ".glass-card{background:rgba(15,23,42,0.9);";
   s += "border-radius:18px;border:1px solid rgba(148,163,184,0.35);";
   s += "box-shadow:0 18px 45px rgba(0,0,0,0.65);backdrop-filter:blur(16px);}";
   s += ".card-header-gradient{border-bottom:1px solid rgba(148,163,184,0.35);";
-  s += "background:linear-gradient(120deg,#0ea5e9,#22c55e,#eab308);}";
+  s += "background:linear-gradient(120deg,#F96831,#F96831,#F5F5F5);}"; // [web:400][web:419]
   s += ".chip{border-radius:999px;padding:4px 10px;font-size:0.78rem;}";
   s += ".btn-pill{border-radius:999px;font-weight:500;}";
   s += ".btn-icon i{margin-right:6px;}";
   s += ".status-label{font-size:0.8rem;color:#9ca3af;}";
   s += ".status-value{font-weight:600;}";
   s += ".progress{background:rgba(15,23,42,0.9);border-radius:999px;}";
-  s += ".progress-bar{border-radius:999px;}";
+  s += ".progress-bar{border-radius:999px;background-color:#F96831;}";
   s += ".badge-soft{background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.6);}";
   s += "a,button{outline:none!important;box-shadow:none!important;}";
   s += ".list-group-item{border-color:rgba(55,65,81,0.7);}";
+
+  s += ".btn-outline-info{color:#F96831;border-color:#F96831;}";
+  s += ".btn-outline-info:hover{background-color:#F96831;color:#000;border-color:#F96831;}";
+  s += ".btn-outline-danger{color:#F96831;border-color:#F96831;}";
+  s += ".btn-outline-danger:hover{background-color:#F96831;color:#000;border-color:#F96831;}";
+  s += ".btn-outline-success{color:#F96831;border-color:#F96831;}";
+  s += ".btn-outline-success:hover{background-color:#F96831;color:#000;border-color:#F96831;}";
+  s += ".btn-outline-light{color:#F5F5F5;border-color:#F5F5F5;}";
+  s += ".btn-outline-light:hover{background-color:#F5F5F5;color:#111827;border-color:#F5F5F5;}";
+
+  s += ".chip-auto-on{background-color:#F96831;color:#111827;}";
+  s += ".chip-auto-off{background-color:#111827;color:#F5F5F5;border:1px solid #4b5563;}";
+
   s += "</style>";
   s += "</head><body>";
   s += "<div class='card-shell'>";
   s += "  <div class='glass-card'>";
   s += "    <div class='card-header-gradient text-white px-4 py-3 d-flex align-items-center justify-content-between'>";
   s += "      <div>";
-  s += "        <div class='fw-semibold'>M5 Auto Power Off</div>";
-  s += "        <div class='small text-white-50'>Local ESP32 control & timer</div>";
+  s += "        <div class='fw-semibold'>Core One Auto Power Off</div>";
+  s += "        <div class='small text-white-50'>Local M5Stack control & timer</div>";
   s += "      </div>";
   s += "      <div class='text-end'>";
   s += "        <div class='status-label'>Device IP</div>";
@@ -308,7 +308,7 @@ String htmlPage() {
   s += "        <div class='col-6'>";
   s += "          <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>";
   s += "            <span class='status-label'>Auto power off</span>";
-  s += "            <span id='modeBadge' class='status-value chip bg-secondary text-light mt-1'>?</span>";
+  s += "            <span id='modeBadge' class='status-value chip chip-auto-off mt-1'>?</span>";
   s += "          </div>";
   s += "        </div>";
   s += "        <div class='col-6'>";
@@ -324,7 +324,7 @@ String htmlPage() {
   s += "        <span id='timeRemaining' class='status-value small'>-</span>";
   s += "      </div>";
   s += "      <div class='progress mb-4' style='height:9px;'>";
-  s += "        <div id='timerProgress' class='progress-bar bg-warning' role='progressbar' style='width:0%;'></div>";
+  s += "        <div id='timerProgress' class='progress-bar' role='progressbar' style='width:0%;'></div>";
   s += "      </div>";
 
   s += "      <div class='d-grid gap-2 mb-2'>";
@@ -348,7 +348,6 @@ String htmlPage() {
   s += "    </div>";
   s += "  </div>";
 
-  // Relay report card
   s += "  <div class='glass-card mt-3'>";
   s += "    <div class='px-4 pt-3 pb-3'>";
   s += "      <div class='d-flex justify-content-between align-items-center mb-2'>";
@@ -384,7 +383,7 @@ String htmlPage() {
   s += "    </div>";
   s += "  </div>";
 
-  s += "</div>"; // card-shell
+  s += "</div>";
 
   s += "<script>";
   s += "async function apiCall(path){try{await fetch(path);}catch(e){console.error(e);}}";
@@ -414,27 +413,23 @@ String htmlPage() {
   s += "    const rv=j.report_valid;";
   s += "    const relay=j.relay;";
 
-  // auto power off badge
   s += "    modeBadge.textContent = autoMode ? 'ON' : 'OFF';";
-  s += "    modeBadge.className = 'status-value chip ' + (autoMode ? 'bg-success' : 'bg-danger');";
+  s += "    modeBadge.className = 'status-value chip ' + (autoMode ? 'chip-auto-on' : 'chip-auto-off');";
 
-  // timer badge
   s += "    tBadge.textContent = tmr ? 'RUNNING' : 'STOPPED';";
   s += "    tBadge.className = 'status-value chip ' + (tmr ? 'bg-warning text-dark' : 'bg-secondary');";
 
-  // remaining + progress
   s += "    let txt='-';let pct=0;";
   s += "    if(tmr){";
   s += "      const sec=Math.max(0,Math.floor(rem/1000));";
   s += "      const m=Math.floor(sec/60);";
-  s += "      const s=sec%60;";
-  s += "      txt=(m.toString().padStart(2,'0')+':'+s.toString().padStart(2,'0'))+' min';";
+  s += "      const s2=sec%60;";
+  s += "      txt=(m.toString().padStart(2,'0')+':'+s2.toString().padStart(2,'0'))+' min';";
   s += "      pct = Math.min(100, Math.max(0, 100*(total-rem)/total));";
   s += "    }";
   s += "    timeSpan.textContent=txt;";
   s += "    bar.style.width=pct+'%';";
 
-  // report section
   s += "    valReportState.textContent = rv ? 'report: OK' : 'report: error';";
   s += "    if(rv){";
   s += "      relayBadge.textContent = relay ? 'ON' : 'OFF';";
@@ -444,7 +439,6 @@ String htmlPage() {
   s += "      valTemp.textContent   = j.temperature.toFixed(2) + ' °C';";
   s += "      valEnergy.textContent = j.energy_boot.toFixed(2);";
 
-  // time_boot in days/hours/minutes/seconds [web:344][web:350]
   s += "      let tb = j.time_boot;";
   s += "      let secs = tb;";
   s += "      const days = Math.floor(secs / 86400); secs %= 86400;";
@@ -468,6 +462,68 @@ String htmlPage() {
 
   s += "</body></html>";
   return s;
+}
+
+// -----------------------------------------------------------------------------
+// Mode button: Single-/Double-Click-Detection (auf RELEASE) [web:193][web:457]
+// -----------------------------------------------------------------------------
+
+enum ModeClickEvent {
+  ModeNone,
+  ModeSingleClick,
+  ModeDoubleClick
+};
+
+ModeClickEvent chkModeButton() {
+  static bool  lastStable     = HIGH;
+  static bool  lastRaw        = HIGH;
+  static unsigned long lastDebounce = 0;
+
+  static uint8_t clickCount   = 0;
+  static unsigned long firstReleaseTime = 0;
+
+  unsigned long now = millis();
+  bool reading = digitalRead(INPUT_PIN_MODE);
+
+  // Entprellung auf Rohpegel
+  if (reading != lastRaw) {
+    lastDebounce = now;
+    lastRaw = reading;
+  }
+  if (now - lastDebounce < DEBOUNCE_MS) {
+    return ModeNone;
+  }
+
+  // Flankenerkennung auf stabilen Pegel
+  if (reading != lastStable) {
+    lastStable = reading;
+
+    // Interessant ist nur RELEASE (HIGH -> Taster losgelassen)
+    if (reading == HIGH) {
+      clickCount++;
+      if (clickCount == 1) {
+        firstReleaseTime = now;      // Startfenster für evtl. Double-Click
+      } else if (clickCount == 2) {
+        // Zweiter Klick innerhalb Fenster → DoubleClick
+        if (now - firstReleaseTime <= DOUBLE_CLICK_MS) {
+          clickCount = 0;
+          return ModeDoubleClick;
+        } else {
+          // zu spät, als neuer erster Klick behandeln
+          clickCount = 1;
+          firstReleaseTime = now;
+        }
+      }
+    }
+  }
+
+  // Single-Click, wenn Fenster abgelaufen und nur 1 Klick
+  if (clickCount == 1 && (now - firstReleaseTime > DOUBLE_CLICK_MS)) {
+    clickCount = 0;
+    return ModeSingleClick;
+  }
+
+  return ModeNone;
 }
 
 // -----------------------------------------------------------------------------
@@ -504,14 +560,13 @@ void startWebServer() {
     server.send(200, "application/json", json);
   });
 
-  // toggle auto power-off mode
   server.on("/api/mode", HTTP_GET, []() {
     autoPowerOffEnabled = !autoPowerOffEnabled;
     offTimerRunning = false;
     if (autoPowerOffEnabled) {
-      showAutoOffEnabledBase();   // blue X
+      showAutoOffEnabledBase();
     } else {
-      showAutoOffDisabled();      // green I
+      showAutoOffDisabled();
     }
     server.send(200, "text/plain", autoPowerOffEnabled ? "auto_mode=ON" : "auto_mode=OFF");
   });
@@ -521,7 +576,7 @@ void startWebServer() {
     sendOff();
     clearMatrix();
     M5.dis.fillpix(0x330000);
-    drawI(0xFF0000);  // red I to indicate OFF
+    drawI(0xFF0000);
     server.send(200, "text/plain", "off_now=OK");
   });
 
@@ -554,11 +609,10 @@ void setup() {
 
   ensureWifi();
 
-  lastState     = digitalRead(INPUT_PIN);
-  modeLastState = digitalRead(INPUT_PIN_MODE);
+  lastState = digitalRead(INPUT_PIN);
 
-  autoPowerOffEnabled = true;
-  showAutoOffEnabledBase();  // blue X
+  autoPowerOffEnabled = false;
+  showAutoOffDisabled();  // green I
 
   startWebServer();
 }
@@ -569,55 +623,36 @@ void loop() {
 
   uint32_t now = millis();
 
-  // Periodically poll /report on the relay device
+  // poll /report
   if (now - lastReportPollMs >= REPORT_POLL_INTERVAL_MS) {
     lastReportPollMs = now;
     updateReportStatus();
   }
 
-  // 1) Mode button: debounced + single/double click handling
-  bool modeReading = digitalRead(INPUT_PIN_MODE);
-  if (modeReading != modeLastState && (now - modeLastChangeMs) > DEBOUNCE_MS) {
-    modeLastChangeMs = now;
-    modeLastState = modeReading;
+  // 1) Mode button: Single-/Double-Click sauber getrennt
+  ModeClickEvent evt = chkModeButton();
+  if (evt == ModeSingleClick) {
+    Serial.println("Mode SINGLE-CLICK -> toggle auto mode");
+    offTimerRunning = false;
+    lastState = digitalRead(INPUT_PIN);
+    autoPowerOffEnabled = !autoPowerOffEnabled;
 
-    if (modeReading == LOW) {
-      // Button press detected
-      if (now - modeLastClickTime > DOUBLE_CLICK_MS) {
-        modeClickCount = 1;
-        modeLastClickTime = now;
-      } else {
-        modeClickCount++;
-      }
-
-      if (modeClickCount == 2) {
-        // Double-click: immediate toggle on relay
-        Serial.println("Mode DOUBLE-CLICK -> toggle relay");
-        offTimerRunning = false;
-        sendToggle();
-        clearMatrix();
-        M5.dis.fillpix(0x000000);
-        // short blue X flash
-        showAutoOffEnabledBase();
-        modeClickCount = 0;
-        modeLastClickTime = 0;
-      } else {
-        // Single-click: toggle auto power-off mode
-        autoPowerOffEnabled = !autoPowerOffEnabled;
-        offTimerRunning = false;
-        if (autoPowerOffEnabled) {
-          showAutoOffEnabledBase(); // blue X
-        } else {
-          showAutoOffDisabled();    // green I
-        }
-      }
+    if (autoPowerOffEnabled) {
+      showAutoOffEnabledBase();
+    } else {
+      showAutoOffDisabled();
     }
-  }
+  } else if (evt == ModeDoubleClick) {
+    Serial.println("Mode DOUBLE-CLICK -> toggle relay");
+    offTimerRunning = false;
+    sendToggle();
 
-  // reset single-click window if time elapsed without second click
-  if (modeClickCount == 1 && (now - modeLastClickTime > DOUBLE_CLICK_MS)) {
-    modeClickCount = 0;
-    modeLastClickTime = 0;
+    clearMatrix();
+    if (autoPowerOffEnabled) {
+      showAutoOffEnabledBase();
+    } else {
+      showAutoOffDisabled();
+    }
   }
 
   // 2) External input handling (only if auto power off is enabled)
@@ -629,23 +664,20 @@ void loop() {
       lastState = s;
 
       if (s == LOW) {
-        // Start auto power off timer
         offTimerRunning = true;
         offTimerStart   = now;
       } else {
-        // Abort timer, stay in auto mode (blue X)
         offTimerRunning = false;
         showAutoOffEnabledBase();
       }
     }
   } else {
-    // In manual mode, ensure timer is not running
     if (offTimerRunning) {
       offTimerRunning = false;
     }
   }
 
-  // 3) Auto power-off timer + LED matrix progress bar
+  // 3) Timer + Progressbar
   if (offTimerRunning) {
     uint32_t elapsed = now - offTimerStart;
     if (elapsed >= OFF_DELAY_MS) {
@@ -653,7 +685,7 @@ void loop() {
       sendOff();
       clearMatrix();
       M5.dis.fillpix(0x330000);
-      drawI(0xFF0000);   // red I when turned off
+      drawI(0xFF0000);
     } else {
       float progress = (float)elapsed / (float)OFF_DELAY_MS;
       if (progress < 0.0f) progress = 0.0f;
