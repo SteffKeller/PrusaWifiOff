@@ -1,5 +1,6 @@
 #pragma once
 #include <WebServer.h>
+#include <Preferences.h>
 
 // von main bereitgestellt
 extern WebServer server;
@@ -13,6 +14,8 @@ extern float reportTemperature;
 extern String reportBootId;
 extern float reportEnergyBoot;
 extern uint32_t reportTimeBoot;
-extern const uint32_t OFF_DELAY_MS;
+extern uint32_t offDelayMs ;
+extern uint32_t offTimerStart;
+extern Preferences prefs;
 
 void startWebServer();

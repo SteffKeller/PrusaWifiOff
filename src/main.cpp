@@ -4,7 +4,7 @@
 #include <M5Atom.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
-
+#include <Preferences.h>
 #include "LedDisplay.h"
 #include "ButtonMode.h"
 #include "WebUi.h"
@@ -13,7 +13,7 @@
 const char* WIFI_SSID = "diveintothenet";
 const char* WIFI_PASS = "dtn24steffshome67L";
 
-constexpr uint32_t OFF_DELAY_MS    = 10UL * 1000UL;
+// constexpr uint32_t offDelayMs   = 10UL * 1000UL;
 
 constexpr int INPUT_PIN      = 23;
 
@@ -42,6 +42,10 @@ uint32_t reportTimeBoot    = 0;
 
 uint32_t lastReportPollMs  = 0;
 constexpr uint32_t REPORT_POLL_INTERVAL_MS = 5000;
+
+//
+Preferences prefs;
+uint32_t offDelayMs = 10UL * 60UL * 1000UL; // default 10 min
 
 // Forward
 void ensureWifi();
@@ -128,8 +132,13 @@ void updateReportStatus() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-
   M5.begin(true, false, true);
+
+  prefs.begin("coreone", false);  // Namespace
+  offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Default, falls nicht gesetzt
+  prefs.end();
+
+  Serial.println("Load " + String(offDelayMs));
 
   pinMode(INPUT_PIN,      INPUT_PULLUP);
   pinMode(INPUT_PIN_MODE, INPUT_PULLUP);
@@ -203,14 +212,14 @@ void loop() {
 
   if (offTimerRunning) {
     uint32_t elapsed = now - offTimerStart;
-    if (elapsed >= OFF_DELAY_MS) {
+    if (elapsed >= offDelayMs ) {
       offTimerRunning = false;
       sendOff();
       clearMatrix();
       M5.dis.fillpix(0x330000);
       drawI(0xFF0000);
     } else {
-      float progress = (float)elapsed / (float)OFF_DELAY_MS;
+      float progress = (float)elapsed / (float)offDelayMs ;
       if (progress < 0.0f) progress = 0.0f;
       if (progress > 1.0f) progress = 1.0f;
 
