@@ -317,7 +317,7 @@ void startWebServer()
         offTimerRunning = false;
         sendOff();
         clearMatrix();
-        M5.dis.fillpix(0x330000);
+        M5.dis.fillpix(0x000000);
         drawI(0xFF0000);
         server.send(200, "text/plain", "off_now=OK"); });
 
