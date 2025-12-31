@@ -8,12 +8,11 @@
 #include "LedDisplay.h"
 #include "ButtonMode.h"
 #include "WebUi.h"
+#include "wifi_cred.h"
 
-
-const char* WIFI_SSID = "diveintothenet";
-const char* WIFI_PASS = "dtn24steffshome67L";
-
-// constexpr uint32_t offDelayMs   = 10UL * 1000UL;
+// Wifi credentials are located in the local only file wifi_cred.h
+const char* WIFI_SSID = WIFI_SSID_CONFIG;
+const char* WIFI_PASS = WIFI_PASS_CONFIG;
 
 constexpr int INPUT_PIN      = 23;
 
