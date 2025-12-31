@@ -10,7 +10,11 @@
 #include "WebUi.h"
 #include "wifi_cred.h"
 
+<<<<<<< HEAD
 // Wifi credentials are located in the local only file wifi_cred.h
+=======
+
+>>>>>>> c4b2426b966d3d4efff1accc7bbd229452ceac4a
 const char* WIFI_SSID = WIFI_SSID_CONFIG;
 const char* WIFI_PASS = WIFI_PASS_CONFIG;
 
