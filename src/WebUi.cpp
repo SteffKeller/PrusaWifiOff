@@ -84,16 +84,22 @@ String htmlPage()
 
     s += "    <div class='px-4 pt-3 pb-4'>";
     s += "      <div class='row g-2 mb-3'>";
-    s += "        <div class='col-6'>";
+    s += "        <div class='col-4'>";
     s += "          <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>";
     s += "            <span class='status-label'>Auto power off</span>";
     s += "            <span id='modeBadge' class='status-value chip chip-auto-off mt-1'>?</span>";
     s += "          </div>";
     s += "        </div>";
-    s += "        <div class='col-6'>";
+    s += "        <div class='col-4'>";
     s += "          <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>";
     s += "            <span class='status-label'>Timer</span>";
     s += "            <span id='timerBadge' class='status-value chip bg-secondary text-light mt-1'>?</span>";
+    s += "          </div>";
+    s += "        </div>";
+    s += "        <div class='col-4'>";
+    s += "          <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>";
+    s += "            <span class='status-label'>Relay state</span>";
+    s += "            <span id='relayStateBadge' class='status-value chip bg-secondary text-light mt-1'>?</span>";
     s += "          </div>";
     s += "        </div>";
     s += "      </div>";
@@ -232,6 +238,7 @@ String htmlPage()
     s += "    const valReportState=document.getElementById('valReportState');";
     s += "    const relayIpInput=document.getElementById('relayIpInput');";
     s += "    const relayIpDisplay=document.getElementById('relayIpDisplay');";
+    s += "    const relayStateBadge=document.getElementById('relayStateBadge');";
 
     s += "    const rv=j.report_valid;";
     s += "    const relay=j.relay;";
@@ -268,6 +275,8 @@ String htmlPage()
 
     s += "    valReportState.textContent = rv ? 'report: OK' : 'report: error';";
     s += "    if(rv){";
+    s += "      relayStateBadge.textContent = relay ? 'ON' : 'OFF';";
+    s += "      relayStateBadge.className = 'status-value chip ' + (relay ? 'bg-success text-light' : 'bg-danger text-light');";
     s += "      relayBadge.textContent = relay ? 'ON' : 'OFF';";
     s += "      relayBadge.className = 'chip ' + (relay ? 'bg-success text-light' : 'bg-secondary text-light');";
     s += "      valPower.textContent  = j.power.toFixed(2) + ' W';";
@@ -285,6 +294,8 @@ String htmlPage()
 
     s += "      valBootId.textContent = j.boot_id;";
     s += "    }else{";
+    s += "      relayStateBadge.textContent = '?';";
+    s += "      relayStateBadge.className = 'status-value chip bg-secondary text-light';";
     s += "      relayBadge.textContent = '?';";
     s += "      relayBadge.className = 'chip bg-secondary text-light';";
     s += "      valPower.textContent=valWs.textContent=valTemp.textContent='-';";
@@ -378,7 +389,7 @@ void startWebServer()
         offDelayMs = (uint32_t)minutes * 60UL * 1000UL;
 
         prefs.begin("coreone", false);
-        prefs.putUInt("off_delay_ms", offDelayMs);  // Key ohne Leerzeichen
+        prefs.putUInt("off_delay_ms", offDelayMs); 
         prefs.end();
         Serial.println("store"+ String(offDelayMs)  );
 
