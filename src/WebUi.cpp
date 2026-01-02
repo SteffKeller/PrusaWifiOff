@@ -1,11 +1,19 @@
+/**
+ * @file WebUi.cpp
+ * @brief Web interface implementation with embedded HTML and REST API
+ * 
+ * Provides a responsive web UI with "glass morphism" dark theme styled
+ * in Prusa orange (#F96831). Features live AJAX updates every 500ms for
+ * status monitoring without page reloads.
+ */
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <M5Atom.h>
 #include "WebUi.h"
-#include "LedDisplay.h" // für clearMatrix, drawI, showAutoOff*
+#include "LedDisplay.h"
 
-
-// Globale States aus main.cpp:
+// External state from main.cpp
 extern bool autoPowerOffEnabled;
 extern bool offTimerRunning;
 extern bool reportValid;
@@ -18,11 +26,17 @@ extern float reportEnergyBoot;
 extern uint32_t reportTimeBoot;
 extern String relayIpAddress;
 
-// Funktionen aus main.cpp:
+// External control functions from main.cpp
 void sendOff();
 void sendOn();
 void sendToggle();
 
+/**
+ * @brief Generate complete HTML page with embedded CSS and JavaScript
+ * @return HTML string for main web interface
+ * @note Page includes Bootstrap 5.3.3 and Bootstrap Icons from CDN
+ * @note JavaScript polls /api/status every 500ms for live updates
+ */
 String htmlPage()
 {
     String ip = WiFi.localIP().toString();

@@ -1,3 +1,15 @@
+/**
+ * @file main.cpp
+ * @brief M5Stack Atom relay controller with automatic power-off functionality
+ * 
+ * Monitors an external signal on GPIO 23 (printer status) and automatically
+ * powers off an HTTP-controlled relay after a configurable delay when the
+ * signal goes low. Features web UI control, LED status display, and button input.
+ * 
+ * @author PrusaWifiOff Project
+ * @date 2026
+ */
+
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -10,47 +22,66 @@
 #include "WebUi.h"
 #include "wifi_cred.h"
 
-// Wifi credentials are located in the local only file wifi_cred.h
-const char* WIFI_SSID = WIFI_SSID_CONFIG;
-const char* WIFI_PASS = WIFI_PASS_CONFIG;
+// WiFi credentials from local gitignored file
+const char* WIFI_SSID = WIFI_SSID_CONFIG; ///< WiFi SSID from wifi_cred.h
+const char* WIFI_PASS = WIFI_PASS_CONFIG; ///< WiFi password from wifi_cred.h
 
-constexpr int INPUT_PIN      = 23;
+constexpr int INPUT_PIN = 23; ///< GPIO pin for external signal monitoring (printer status)
 
-// Configurable relay IP address
-String relayIpAddress = "192.168.188.44";
+String relayIpAddress = "192.168.188.44"; ///< Configurable relay device IP address (stored in NVS)
 
-// URL builder functions
+/**
+ * @brief Build URL for relay toggle endpoint
+ * @return Complete URL string for toggling relay state
+ */
 String getUrlToggle() { return "http://" + relayIpAddress + "/toggle"; }
+
+/**
+ * @brief Build URL for relay OFF command
+ * @return Complete URL string for turning relay off
+ */
 String getUrlOff()    { return "http://" + relayIpAddress + "/relay?state=0"; }
+
+/**
+ * @brief Build URL for relay ON command
+ * @return Complete URL string for turning relay on
+ */
 String getUrlOn()     { return "http://" + relayIpAddress + "/relay?state=1"; }
+
+/**
+ * @brief Build URL for relay status report endpoint
+ * @return Complete URL string for fetching relay JSON status
+ */
 String getUrlReport() { return "http://" + relayIpAddress + "/report"; }
 
-WebServer server(80);
+WebServer server(80); ///< HTTP server on port 80 for web UI
 
-bool     lastState        = HIGH;
-uint32_t lastChangeMs     = 0;
+// Input signal debouncing state
+bool     lastState        = HIGH;      ///< Last stable state of INPUT_PIN
+uint32_t lastChangeMs     = 0;         ///< Timestamp of last state change
 
-bool     autoPowerOffEnabled      = false;
-bool     offTimerRunning          = false;
-uint32_t offTimerStart            = 0;
+// Auto power-off timer state
+bool     autoPowerOffEnabled = false;  ///< Auto power-off mode enabled flag
+bool     offTimerRunning     = false;  ///< Timer countdown active flag
+uint32_t offTimerStart       = 0;      ///< Timestamp when timer started
 
-bool     reportValid       = false;
-bool     reportRelay       = false;
-float    reportPower       = 0.0f;
-float    reportWs          = 0.0f;
-float    reportTemperature = 0.0f;
-String   reportBootId      = "";
-float    reportEnergyBoot  = 0.0f;
-uint32_t reportTimeBoot    = 0;
+// Relay status report from HTTP polling
+bool     reportValid       = false;    ///< Report data is valid and up-to-date
+bool     reportRelay       = false;    ///< Relay state (ON/OFF) from report
+float    reportPower       = 0.0f;     ///< Current power consumption in watts
+float    reportWs          = 0.0f;     ///< Watt-seconds energy measurement
+float    reportTemperature = 0.0f;     ///< Device temperature in Celsius
+String   reportBootId      = "";       ///< Unique boot ID from relay device
+float    reportEnergyBoot  = 0.0f;     ///< Energy consumed since boot
+uint32_t reportTimeBoot    = 0;        ///< Time since boot in seconds
 
-uint32_t lastReportPollMs  = 0;
-constexpr uint32_t REPORT_POLL_INTERVAL_MS = 5000;
+uint32_t lastReportPollMs  = 0;        ///< Timestamp of last status poll
+constexpr uint32_t REPORT_POLL_INTERVAL_MS = 5000; ///< Poll relay every 5 seconds
 
-//
-Preferences prefs;
-uint32_t offDelayMs = 10UL * 60UL * 1000UL; // default 10 min
+Preferences prefs;                     ///< ESP32 NVS preferences storage
+uint32_t offDelayMs = 10UL * 60UL * 1000UL; ///< Auto-off delay (default 10 minutes)
 
-// Forward
+// Forward declarations
 void ensureWifi();
 void sendGet(const String& url);
 void sendOff();
@@ -58,6 +89,11 @@ void sendOn();
 void sendToggle();
 void updateReportStatus();
 
+/**
+ * @brief Send HTTP GET request to relay device
+ * @param url Complete URL string to fetch
+ * @note Only sends if WiFi is connected, logs HTTP response code to Serial
+ */
 void sendGet(const String& url) {
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http;
@@ -66,10 +102,26 @@ void sendGet(const String& url) {
   Serial.printf("GET %s -> HTTP %d\n", url.c_str(), code);
   http.end();
 }
+
+/**
+ * @brief Send relay OFF command
+ */
 void sendOff()    { sendGet(getUrlOff());    }
+
+/**
+ * @brief Send relay ON command
+ */
 void sendOn()     { sendGet(getUrlOn());     }
+
+/**
+ * @brief Send relay toggle command
+ */
 void sendToggle() { sendGet(getUrlToggle()); }
 
+/**
+ * @brief Ensure WiFi connection is active, reconnect if needed
+ * @note Blocks up to 10 seconds waiting for connection, logs status to Serial
+ */
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
 
@@ -92,6 +144,11 @@ void ensureWifi() {
   }
 }
 
+/**
+ * @brief Poll relay device for status report via HTTP GET
+ * @note Fetches JSON from /report endpoint, updates global report* variables
+ * @note Sets reportValid to false on connection or parsing errors
+ */
 void updateReportStatus() {
   if (WiFi.status() != WL_CONNECTED) {
     reportValid = false;
@@ -132,6 +189,11 @@ void updateReportStatus() {
   Serial.println("REPORT updated");
 }
 
+/**
+ * @brief Arduino setup - initialize hardware, load settings, connect WiFi
+ * @note Loads offDelayMs and relayIpAddress from NVS preferences
+ * @note Configures GPIO pins with pullups, starts web server
+ */
 void setup() {
   Serial.begin(115200);
   delay(200);
@@ -158,6 +220,12 @@ void setup() {
   startWebServer();
 }
 
+/**
+ * @brief Main loop - handle web requests, button input, timer logic, LED updates
+ * @note Polls relay status every 5 seconds
+ * @note Updates LED matrix based on timer state and progress
+ * @note Monitors INPUT_PIN for signal changes to trigger auto-off timer
+ */
 void loop() {
   ensureWifi();
   server.handleClient();

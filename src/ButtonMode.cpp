@@ -1,18 +1,23 @@
+/**
+ * @file ButtonMode.cpp
+ * @brief Implementation of button click detection with debouncing
+ */
+
 #include <Arduino.h>
 #include "ButtonMode.h"
 
 ModeClickEvent chkModeButton() {
-  static bool  lastStable     = HIGH;
-  static bool  lastRaw        = HIGH;
-  static unsigned long lastDebounce = 0;
+  static bool  lastStable     = HIGH;          // Last stable button state
+  static bool  lastRaw        = HIGH;          // Last raw reading for debounce
+  static unsigned long lastDebounce = 0;       // Timestamp for debounce
 
-  static uint8_t  clickCount        = 0;
-  static unsigned long firstReleaseTime = 0;
+  static uint8_t  clickCount        = 0;       // Number of clicks detected
+  static unsigned long firstReleaseTime = 0;   // Timestamp of first click release
 
   unsigned long now = millis();
   bool reading = digitalRead(INPUT_PIN_MODE);
 
-  // Entprellung
+  // Debouncing - start debounce timer on any change
   if (reading != lastRaw) {
     lastDebounce = now;
     lastRaw = reading;
@@ -21,11 +26,11 @@ ModeClickEvent chkModeButton() {
     return ModeNone;
   }
 
-  // Flanke auf stabilen Pegel
+  // Detect stable edge transition
   if (reading != lastStable) {
     lastStable = reading;
 
-    // nur Release (HIGH) zählt als Klick
+    // Only button release (HIGH) counts as a click
     if (reading == HIGH) {
       clickCount++;
       if (clickCount == 1) {
@@ -35,7 +40,7 @@ ModeClickEvent chkModeButton() {
           clickCount = 0;
           return ModeDoubleClick;
         } else {
-          // zu langsam -> als neuer erster Klick
+          // Too slow - treat as new first click
           clickCount = 1;
           firstReleaseTime = now;
         }
@@ -43,7 +48,7 @@ ModeClickEvent chkModeButton() {
     }
   }
 
-  // Single-Click, wenn Fenster vorbei und nur 1 Klick
+  // Single-click when double-click window expires with only 1 click
   if (clickCount == 1 && (now - firstReleaseTime > DOUBLE_CLICK_MS)) {
     clickCount = 0;
     return ModeSingleClick;
