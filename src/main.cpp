@@ -6,8 +6,8 @@
  * powers off an HTTP-controlled relay after a configurable delay when the
  * signal goes low. Features web UI control, LED status display, and button input.
  * 
- * @author PrusaWifiOff Project
- * @date 2026
+ * @author Steff8583
+ * @date 02.01.2026
  */
 
 #include <Arduino.h>
