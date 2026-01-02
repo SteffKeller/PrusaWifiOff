@@ -200,7 +200,7 @@ void setup() {
   M5.begin(true, false, true);
 
   prefs.begin("coreone", false);  // Namespace
-  offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Default, falls nicht gesetzt
+  offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Load from NVS, use default if not set
   relayIpAddress = prefs.getString("relay_ip", relayIpAddress); // Load relay IP
   prefs.end();
 
@@ -244,10 +244,19 @@ void loop() {
     lastState = digitalRead(INPUT_PIN);
     autoPowerOffEnabled = !autoPowerOffEnabled;
 
+    // Update LED display immediately based on mode and relay state
     if (autoPowerOffEnabled) {
-      showAutoOffEnabledBase();
+      if (reportValid && !reportRelay) {
+        showAutoOffEnabledRed();  // Red X when auto-off enabled and relay is OFF
+      } else {
+        showAutoOffEnabledBase(); // Blue X when auto-off enabled and relay is ON
+      }
     } else {
-      showAutoOffDisabled();
+      if (reportValid && !reportRelay) {
+        showAutoOffDisabledRed(); // Red I when auto-off disabled and relay is OFF
+      } else {
+        showAutoOffDisabled();    // Green I when auto-off disabled and relay is ON
+      }
     }
   } else if (evt == ModeDoubleClick) {
     Serial.println("Mode DOUBLE-CLICK -> toggle relay");
@@ -274,7 +283,12 @@ void loop() {
         offTimerStart   = now;
       } else {
         offTimerRunning = false;
-        showAutoOffEnabledBase();
+        // Update LED based on relay state when signal goes HIGH
+        if (reportValid && !reportRelay) {
+          showAutoOffEnabledRed();  // Red X if relay is OFF
+        } else {
+          showAutoOffEnabledBase(); // Blue X if relay is ON
+        }
       }
     }
   } else {
@@ -300,6 +314,30 @@ void loop() {
       if (filledRows > 5) filledRows = 5;
 
       drawProgressBar(filledRows);
+    }
+  } else {
+    // When timer is not running, update LED based on current relay state
+    static bool lastReportRelay = false;
+    static bool lastReportValid = false;
+    
+    // Only update LED if relay state or report validity changed
+    if (reportRelay != lastReportRelay || reportValid != lastReportValid) {
+      lastReportRelay = reportRelay;
+      lastReportValid = reportValid;
+      
+      if (autoPowerOffEnabled) {
+        if (reportValid && !reportRelay) {
+          showAutoOffEnabledRed();  // Red X when relay is OFF
+        } else {
+          showAutoOffEnabledBase(); // Blue X when relay is ON or report invalid
+        }
+      } else {
+        if (reportValid && !reportRelay) {
+          showAutoOffDisabledRed(); // Red I when relay is OFF
+        } else {
+          showAutoOffDisabled();    // Green I when relay is ON or report invalid
+        }
+      }
     }
   }
 

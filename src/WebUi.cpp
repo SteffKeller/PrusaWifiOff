@@ -57,7 +57,7 @@ String htmlPage()
     s += "border-radius:18px;border:1px solid rgba(148,163,184,0.35);";
     s += "box-shadow:0 18px 45px rgba(0,0,0,0.65);backdrop-filter:blur(16px);}";
     s += ".card-header-gradient{border-bottom:1px solid rgba(148,163,184,0.35);";
-    s += "background:linear-gradient(120deg,#F96831,#F96831,#F5F5F5);}"; // Prusa [web:400][web:419]
+    s += "background:linear-gradient(120deg,#F96831,#F96831,#F5F5F5);}"; // Prusa orange gradient
     s += ".chip{border-radius:999px;padding:4px 10px;font-size:0.78rem;}";
     s += ".btn-pill{border-radius:999px;font-weight:500;}";
     s += ".btn-icon i{margin-right:6px;}";

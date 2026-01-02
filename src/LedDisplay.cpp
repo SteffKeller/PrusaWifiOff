@@ -44,6 +44,32 @@ void showAutoOffDisabled() {
   drawI(0x00FF00);  // Green "I"
 }
 
+void showAutoOffDisabledRed() {
+  clearMatrix();
+  drawI(0xFF0000);  // Red "I"
+}
+
+void showAutoOffEnabledRed() {
+  clearMatrix();
+  M5.dis.fillpix(0x000000);
+
+  uint32_t col = 0xFF0000;  // Red
+
+  // Draw diagonal "\"
+  M5.dis.drawpix(0, 0, col);
+  M5.dis.drawpix(1, 1, col);
+  M5.dis.drawpix(2, 2, col);
+  M5.dis.drawpix(3, 3, col);
+  M5.dis.drawpix(4, 4, col);
+
+  // Draw diagonal "/"
+  M5.dis.drawpix(4, 0, col);
+  M5.dis.drawpix(3, 1, col);
+  M5.dis.drawpix(2, 2, col);
+  M5.dis.drawpix(1, 3, col);
+  M5.dis.drawpix(0, 4, col);
+}
+
 void drawProgressBar(uint8_t filledRows) {
   clearMatrix();
   uint32_t bgBase = 0x000000;  // Black background

@@ -30,10 +30,22 @@ void drawI(uint32_t col);
 void showAutoOffEnabledBase();
 
 /**
+ * @brief Display red "X" pattern (auto-off enabled, relay OFF)
+ * @note Shows red diagonal cross when auto power-off is enabled but relay is off
+ */
+void showAutoOffEnabledRed();
+
+/**
  * @brief Display green "I" pattern (auto-off disabled)
  * @note Shows vertical line indicating auto power-off mode is inactive
  */
 void showAutoOffDisabled();
+
+/**
+ * @brief Display red "I" pattern (auto-off disabled, relay OFF)
+ * @note Shows red vertical line when auto power-off is disabled and relay is off
+ */
+void showAutoOffDisabledRed();
 
 /**
  * @brief Draw orange progress bar from bottom up with blue X overlay
