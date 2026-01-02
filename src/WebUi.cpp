@@ -16,6 +16,7 @@ extern float reportTemperature;
 extern String reportBootId;
 extern float reportEnergyBoot;
 extern uint32_t reportTimeBoot;
+extern String relayIpAddress;
 
 // Funktionen aus main.cpp:
 void sendOff();
@@ -136,13 +137,29 @@ String htmlPage()
     s += "    </div>";
     s += "  </div>";
 
+    // IP Configuration Card
+    s += "  <div class='glass-card mt-3'>";
+    s += "    <div class='px-4 pt-3 pb-3'>";
+    s += "      <div class='mb-3'>";
+    s += "        <label class='status-label'>Relay IP Address</label>";
+    s += "        <div class='input-group input-group-sm'>";
+    s += "          <input id='relayIpInput' type='text' class='form-control' placeholder='192.168.188.44' value='' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>";
+    s += "          <button id='btnSaveIp' class='btn btn-outline-light btn-sm' type='button' style='border-radius:0 999px 999px 0;'>";
+    s += "            <i class='bi bi-check-lg'></i> Save";
+    s += "          </button>";
+    s += "        </div>";
+    s += "        <div class='small text-muted mt-1'>Configure target relay device IP</div>";
+    s += "      </div>";
+    s += "    </div>";
+    s += "  </div>";
+
     // Relay status card
     s += "  <div class='glass-card mt-3'>";
     s += "    <div class='px-4 pt-3 pb-3'>";
     s += "      <div class='d-flex justify-content-between align-items-center mb-2'>";
     s += "        <div>";
     s += "          <div class='fw-semibold'>Relay status</div>";
-    s += "          <div class='status-label'>Reported from 192.168.188.44</div>";
+    s += "          <div class='status-label'>Reported from <span id='relayIpDisplay'>-</span></div>";
     s += "        </div>";
     s += "        <span id='relayBadge' class='chip bg-secondary text-light'>?</span>";
     s += "      </div>";
@@ -179,6 +196,13 @@ String htmlPage()
     s += "document.getElementById('btnOnNow').onclick=function(){apiCall('/api/on_now');};";
     s += "document.getElementById('btnToggle').onclick=function(){apiCall('/api/toggle');};";
 
+    // IP Save button
+    s += "document.getElementById('btnSaveIp').onclick=async function(){";
+    s += "  const ip=document.getElementById('relayIpInput').value.trim();";
+    s += "  if(!ip){alert('Please enter a valid IP address');return;}";
+    s += "  try{await fetch('/api/set_relay_ip?ip='+encodeURIComponent(ip));}catch(e){console.error(e);}";
+    s += "};";
+
     // Slider-Setup
     s += "const slider=document.getElementById('timerSlider');";
     s += "const sliderVal=document.getElementById('timerSliderValue');";
@@ -206,9 +230,18 @@ String htmlPage()
     s += "    const valTimeBoot=document.getElementById('valTimeBoot');";
     s += "    const valBootId=document.getElementById('valBootId');";
     s += "    const valReportState=document.getElementById('valReportState');";
+    s += "    const relayIpInput=document.getElementById('relayIpInput');";
+    s += "    const relayIpDisplay=document.getElementById('relayIpDisplay');";
 
     s += "    const rv=j.report_valid;";
     s += "    const relay=j.relay;";
+
+    s += "    if(j.relay_ip){";
+    s += "      if(document.activeElement!==relayIpInput){";
+    s += "        relayIpInput.value=j.relay_ip;";
+    s += "      }";
+    s += "      relayIpDisplay.textContent=j.relay_ip;";
+    s += "    }";
 
     s += "    modeBadge.textContent = autoMode ? 'ON' : 'OFF';";
     s += "    modeBadge.className = 'status-value chip ' + (autoMode ? 'chip-auto-on' : 'chip-auto-off');";
@@ -297,7 +330,8 @@ void startWebServer()
         json += "\"temperature\":"   + String(reportTemperature, 2) + ",";
         json += "\"energy_boot\":"   + String(reportEnergyBoot, 2) + ",";
         json += "\"time_boot\":"     + String(reportTimeBoot) + ",";
-        json += "\"boot_id\":\""     + reportBootId + "\"";
+        json += "\"boot_id\":\""     + reportBootId + "\",";
+        json += "\"relay_ip\":\""    + relayIpAddress + "\"";
         json += "}";
         server.send(200, "application/json", json); });
 
@@ -347,6 +381,29 @@ void startWebServer()
         prefs.putUInt("off_delay_ms", offDelayMs);  // Key ohne Leerzeichen
         prefs.end();
         Serial.println("store"+ String(offDelayMs)  );
+
+        server.send(200, "text/plain", "ok"); });
+
+    server.on("/api/set_relay_ip", HTTP_GET, []()
+              {
+        if (!server.hasArg("ip")) {
+          server.send(400, "text/plain", "missing ip");
+          return;
+        }
+        String newIp = server.arg("ip");
+        newIp.trim();
+        
+        if (newIp.length() < 7 || newIp.length() > 15) {
+          server.send(400, "text/plain", "invalid ip format");
+          return;
+        }
+
+        relayIpAddress = newIp;
+
+        prefs.begin("coreone", false);
+        prefs.putString("relay_ip", relayIpAddress);
+        prefs.end();
+        Serial.println("Stored relay IP: " + relayIpAddress);
 
         server.send(200, "text/plain", "ok"); });
 

@@ -17,5 +17,6 @@ extern uint32_t reportTimeBoot;
 extern uint32_t offDelayMs ;
 extern uint32_t offTimerStart;
 extern Preferences prefs;
+extern String relayIpAddress;
 
 void startWebServer();

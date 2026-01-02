@@ -10,20 +10,20 @@
 #include "WebUi.h"
 #include "wifi_cred.h"
 
-<<<<<<< HEAD
 // Wifi credentials are located in the local only file wifi_cred.h
-=======
-
->>>>>>> c4b2426b966d3d4efff1accc7bbd229452ceac4a
 const char* WIFI_SSID = WIFI_SSID_CONFIG;
 const char* WIFI_PASS = WIFI_PASS_CONFIG;
 
 constexpr int INPUT_PIN      = 23;
 
-const char* URL_TOGGLE = "http://192.168.188.44/toggle";
-const char* URL_OFF    = "http://192.168.188.44/relay?state=0";
-const char* URL_ON     = "http://192.168.188.44/relay?state=1";
-const char* URL_REPORT = "http://192.168.188.44/report";
+// Configurable relay IP address
+String relayIpAddress = "192.168.188.44";
+
+// URL builder functions
+String getUrlToggle() { return "http://" + relayIpAddress + "/toggle"; }
+String getUrlOff()    { return "http://" + relayIpAddress + "/relay?state=0"; }
+String getUrlOn()     { return "http://" + relayIpAddress + "/relay?state=1"; }
+String getUrlReport() { return "http://" + relayIpAddress + "/report"; }
 
 WebServer server(80);
 
@@ -52,23 +52,23 @@ uint32_t offDelayMs = 10UL * 60UL * 1000UL; // default 10 min
 
 // Forward
 void ensureWifi();
-void sendGet(const char* url);
+void sendGet(const String& url);
 void sendOff();
 void sendOn();
 void sendToggle();
 void updateReportStatus();
 
-void sendGet(const char* url) {
+void sendGet(const String& url) {
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http;
   http.begin(url);
   int code = http.GET();
-  Serial.printf("GET %s -> HTTP %d\n", url, code);
+  Serial.printf("GET %s -> HTTP %d\n", url.c_str(), code);
   http.end();
 }
-void sendOff()    { sendGet(URL_OFF);    }
-void sendOn()     { sendGet(URL_ON);     }
-void sendToggle() { sendGet(URL_TOGGLE); }
+void sendOff()    { sendGet(getUrlOff());    }
+void sendOn()     { sendGet(getUrlOn());     }
+void sendToggle() { sendGet(getUrlToggle()); }
 
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
@@ -99,7 +99,7 @@ void updateReportStatus() {
   }
 
   HTTPClient http;
-  http.begin(URL_REPORT);
+  http.begin(getUrlReport());
   int code = http.GET();
   if (code != 200) {
     Serial.printf("REPORT GET -> HTTP %d\n", code);
@@ -139,9 +139,11 @@ void setup() {
 
   prefs.begin("coreone", false);  // Namespace
   offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Default, falls nicht gesetzt
+  relayIpAddress = prefs.getString("relay_ip", relayIpAddress); // Load relay IP
   prefs.end();
 
-  Serial.println("Load " + String(offDelayMs));
+  Serial.println("Load offDelayMs: " + String(offDelayMs));
+  Serial.println("Load relayIpAddress: " + relayIpAddress);
 
   pinMode(INPUT_PIN,      INPUT_PULLUP);
   pinMode(INPUT_PIN_MODE, INPUT_PULLUP);
