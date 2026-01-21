@@ -1,0 +1,129 @@
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+  color: #e5e7eb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.card-shell {
+  max-width: 520px;
+  margin: 32px auto;
+  padding: 0 12px;
+}
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(16px);
+}
+
+.card-header-gradient {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(120deg, #F96831, #F96831, #F5F5F5);
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+
+.btn-pill {
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.btn-icon i {
+  margin-right: 6px;
+}
+
+.status-label {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.status-value {
+  font-weight: 600;
+}
+
+.progress {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 999px;
+}
+
+.progress-bar {
+  border-radius: 999px;
+  background-color: #F96831;
+}
+
+.badge-soft {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+}
+
+a, button {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.list-group-item {
+  border-color: rgba(55, 65, 81, 0.7);
+}
+
+.btn-outline-info {
+  color: #F96831;
+  border-color: #F96831;
+}
+
+.btn-outline-info:hover {
+  background-color: #F96831;
+  color: #000;
+  border-color: #F96831;
+}
+
+.btn-outline-danger {
+  color: #F96831;
+  border-color: #F96831;
+}
+
+.btn-outline-danger:hover {
+  background-color: #F96831;
+  color: #000;
+  border-color: #F96831;
+}
+
+.btn-outline-success {
+  color: #F96831;
+  border-color: #F96831;
+}
+
+.btn-outline-success:hover {
+  background-color: #F96831;
+  color: #000;
+  border-color: #F96831;
+}
+
+.btn-outline-light {
+  color: #F5F5F5;
+  border-color: #F5F5F5;
+}
+
+.btn-outline-light:hover {
+  background-color: #F5F5F5;
+  color: #111827;
+  border-color: #F5F5F5;
+}
+
+.chip-auto-on {
+  background-color: #F96831;
+  color: #111827;
+}
+
+.chip-auto-off {
+  background-color: #111827;
+  color: #F5F5F5;
+  border: 1px solid #4b5563;
+}

@@ -17,6 +17,8 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include <FS.h>
+#include <SPIFFS.h>
 #include "LedDisplay.h"
 #include "ButtonMode.h"
 #include "WebUi.h"
@@ -168,7 +170,7 @@ void updateReportStatus() {
   String payload = http.getString();
   http.end();
 
-  DynamicJsonDocument doc(256);
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     Serial.print("REPORT JSON parse failed: ");
@@ -198,6 +200,13 @@ void setup() {
   Serial.begin(115200);
   delay(200);
   M5.begin(true, false, true);
+
+  // Initialize SPIFFS filesystem
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS mount failed!");
+  } else {
+    Serial.println("SPIFFS mounted successfully");
+  }
 
   prefs.begin("coreone", false);  // Namespace
   offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Load from NVS, use default if not set
