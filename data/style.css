@@ -1,3 +1,27 @@
+/**
+ * @file style.css
+ * @brief Custom styles for M5Stack Atom web interface
+ * @author Steff8583
+ * @date 02.01.2026
+ * 
+ * Glass morphism dark theme with Prusa orange accent (#F96831).
+ * Responsive design optimized for mobile and desktop viewing.
+ * 
+ * Color Palette:
+ * - Background: Radial gradient from #111827 to black
+ * - Glass cards: rgba(15, 23, 42, 0.9) with blur backdrop
+ * - Primary accent: #F96831 (Prusa orange)
+ * - Text: #e5e7eb (light gray)
+ * - Labels: #9ca3af (muted gray)
+ * 
+ * Components:
+ * - .glass-card: Frosted glass effect containers
+ * - .chip: Pill-shaped status badges
+ * - .btn-pill: Rounded button style
+ * - .progress-bar: Animated countdown indicator
+ */
+
+/* Base layout and typography */
 body {
   min-height: 100vh;
   margin: 0;
@@ -6,12 +30,14 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* Container layout */
 .card-shell {
   max-width: 520px;
   margin: 32px auto;
   padding: 0 12px;
 }
 
+/* Glass morphism card effect */
 .glass-card {
   background: rgba(15, 23, 42, 0.9);
   border-radius: 18px;
@@ -20,11 +46,13 @@ body {
   backdrop-filter: blur(16px);
 }
 
+/* Header with Prusa orange gradient */
 .card-header-gradient {
   border-bottom: 1px solid rgba(148, 163, 184, 0.35);
   background: linear-gradient(120deg, #F96831, #F96831, #F5F5F5);
 }
 
+/* UI Components - Chips and buttons */
 .chip {
   border-radius: 999px;
   padding: 4px 10px;
@@ -40,6 +68,7 @@ body {
   margin-right: 6px;
 }
 
+/* Status display elements */
 .status-label {
   font-size: 0.8rem;
   color: #9ca3af;
@@ -49,6 +78,7 @@ body {
   font-weight: 600;
 }
 
+/* Timer countdown progress bar */
 .progress {
   background: rgba(15, 23, 42, 0.9);
   border-radius: 999px;
@@ -73,6 +103,7 @@ a, button {
   border-color: rgba(55, 65, 81, 0.7);
 }
 
+/* Button color overrides with Prusa orange */
 .btn-outline-info {
   color: #F96831;
   border-color: #F96831;
@@ -117,6 +148,7 @@ a, button {
   border-color: #F5F5F5;
 }
 
+/* Auto-off mode state indicators */
 .chip-auto-on {
   background-color: #F96831;
   color: #111827;

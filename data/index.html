@@ -1,3 +1,22 @@
+<!--
+  @file index.html
+  @brief Main web interface for M5Stack Atom relay controller
+  @author Steff8583
+  @date 02.01.2026
+  
+  Web UI for controlling auto power-off functionality with live status updates.
+  Features:
+  - Real-time status monitoring (auto-mode, timer, relay state)
+  - Manual relay control (ON/OFF/Toggle)
+  - Configurable timer delay (1-240 minutes)
+  - Relay IP address configuration
+  - WiFi network management and reset
+  - Visual feedback with progress bar during countdown
+  
+  Design: Glass morphism dark theme with Prusa orange (#F96831) accent
+  Updates: AJAX polling every 500ms to /api/status endpoint
+  Dependencies: Bootstrap 5.3.3, Bootstrap Icons 1.11.3
+-->
 <!doctype html>
 <html lang='en'>
 <head>

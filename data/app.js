@@ -1,4 +1,34 @@
-// API helper function
+/**
+ * @file app.js
+ * @brief Client-side JavaScript for M5Stack Atom web interface
+ * @author Steff8583
+ * @date 02.01.2026
+ * 
+ * Handles all client-side interactions including:
+ * - API calls to control relay and timer
+ * - Live status updates via polling
+ * - UI state management and visual feedback
+ * - WiFi configuration and reset
+ * 
+ * API Endpoints:
+ * - GET /api/status - Fetch current state (polled every 500ms)
+ * - GET /api/mode - Toggle auto power-off mode
+ * - GET /api/off_now - Power off relay immediately
+ * - GET /api/on_now - Power on relay
+ * - GET /api/toggle - Toggle relay state
+ * - GET /api/set_timer?minutes=X - Set timer duration
+ * - GET /api/set_relay_ip?ip=X - Configure relay IP address
+ * - GET /api/reset_wifi - Reset WiFi settings and restart
+ */
+
+// ============================================================================
+// API Communication Functions
+// ============================================================================
+
+/**
+ * @brief Send API request without waiting for response
+ * @param {string} path - API endpoint path
+ */
 async function apiCall(path) {
   try {
     await fetch(path);
@@ -7,24 +37,45 @@ async function apiCall(path) {
   }
 }
 
-// Button event handlers
+// ============================================================================
+// Button Event Handlers
+// ============================================================================
+
+/**
+ * Toggle auto power-off mode
+ */
 document.getElementById('btnMode').onclick = function() {
   apiCall('/api/mode');
 };
 
+/**
+ * Power off relay immediately
+ */
 document.getElementById('btnOffNow').onclick = function() {
   apiCall('/api/off_now');
 };
 
+/**
+ * Power on relay
+ */
 document.getElementById('btnOnNow').onclick = function() {
   apiCall('/api/on_now');
 };
 
+/**
+ * Toggle relay state
+ */
 document.getElementById('btnToggle').onclick = function() {
   apiCall('/api/toggle');
 };
 
-// IP Save button
+// ============================================================================
+// Configuration Handlers
+// ============================================================================
+
+/**
+ * Save relay IP address to device NVS storage
+ */
 document.getElementById('btnSaveIp').onclick = async function() {
   const ip = document.getElementById('relayIpInput').value.trim();
   if (!ip) {
@@ -38,7 +89,10 @@ document.getElementById('btnSaveIp').onclick = async function() {
   }
 };
 
-// WiFi Reset button
+/**
+ * Reset WiFi settings and restart device into config portal mode
+ * Device will create "M5Stack-AutoOff" AP for reconfiguration
+ */
 document.getElementById('btnResetWifi').onclick = async function() {
   if (!confirm('This will reset WiFi settings and restart the device. You will need to reconnect to the "M5Stack-AutoOff" access point to reconfigure. Continue?')) {
     return;
@@ -51,7 +105,14 @@ document.getElementById('btnResetWifi').onclick = async function() {
   }
 };
 
-// Slider setup
+// ============================================================================
+// Timer Configuration Slider
+// ============================================================================
+
+/**
+ * Timer delay slider (1-240 minutes)
+ * Updates display value on input, saves to device on change
+ */
 const slider = document.getElementById('timerSlider');
 const sliderVal = document.getElementById('timerSliderValue');
 slider.oninput = () => {
@@ -65,7 +126,23 @@ slider.onchange = async () => {
   }
 };
 
-// Status refresh function
+// ============================================================================
+// Live Status Updates
+// ============================================================================
+
+/**
+ * @brief Fetch and update all status information from device
+ * 
+ * Updates:
+ * - Auto-off mode status
+ * - Timer state and remaining time
+ * - Relay state (ON/OFF)
+ * - Progress bar visualization
+ * - Relay report data (power, temperature, etc.)
+ * - WiFi and IP information
+ * 
+ * Called every 500ms by setInterval
+ */
 async function refreshStatus() {
   try {
     const r = await fetch('/api/status');
@@ -179,6 +256,12 @@ async function refreshStatus() {
   }
 }
 
-// Start polling
+// ============================================================================
+// Initialization
+// ============================================================================
+
+/**
+ * Start automatic status polling and perform initial update
+ */
 setInterval(refreshStatus, 500);
 refreshStatus();

@@ -98,6 +98,7 @@ void sendGet(const String& url) {
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http;
   http.begin(url);
+  http.setTimeout(2000); // 2 second timeout
   int code = http.GET();
   Serial.printf("GET %s -> HTTP %d\n", url.c_str(), code);
   http.end();
@@ -157,6 +158,7 @@ void updateReportStatus() {
 
   HTTPClient http;
   http.begin(getUrlReport());
+  http.setTimeout(2000); // 2 second timeout
   int code = http.GET();
   if (code != 200) {
     Serial.printf("REPORT GET -> HTTP %d\n", code);
