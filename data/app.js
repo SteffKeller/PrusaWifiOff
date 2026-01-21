@@ -84,6 +84,8 @@ document.getElementById('btnSaveIp').onclick = async function() {
   }
   try {
     await fetch('/api/set_relay_ip?ip=' + encodeURIComponent(ip));
+    // Wait a moment for server to save, then refresh status
+    await new Promise(resolve => setTimeout(resolve, 500));
   } catch (e) {
     console.error(e);
   }

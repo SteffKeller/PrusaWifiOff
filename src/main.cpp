@@ -266,11 +266,19 @@ void setup() {
  * @note Monitors INPUT_PIN for signal changes to trigger auto-off timer
  */
 void loop() {
-  ensureWifi();
+  // Handle web requests first - highest priority for responsiveness
   server.handleClient();
 
   uint32_t now = millis();
 
+  // Only check WiFi periodically, not every loop iteration
+  static uint32_t lastWifiCheck = 0;
+  if (now - lastWifiCheck >= 30000) {  // Check every 30 seconds
+    lastWifiCheck = now;
+    ensureWifi();
+  }
+
+  // Poll relay status every 5 seconds
   if (now - lastReportPollMs >= REPORT_POLL_INTERVAL_MS) {
     lastReportPollMs = now;
     updateReportStatus();
