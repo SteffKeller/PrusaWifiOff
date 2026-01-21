@@ -10,6 +10,7 @@ ModeClickEvent chkModeButton() {
   static bool  lastStable     = HIGH;          // Last stable button state
   static bool  lastRaw        = HIGH;          // Last raw reading for debounce
   static unsigned long lastDebounce = 0;       // Timestamp for debounce
+  static unsigned long pressStart = 0;         // Timestamp when button was pressed
 
   static uint8_t  clickCount        = 0;       // Number of clicks detected
   static unsigned long firstReleaseTime = 0;   // Timestamp of first click release
@@ -30,8 +31,12 @@ ModeClickEvent chkModeButton() {
   if (reading != lastStable) {
     lastStable = reading;
 
-    // Only button release (HIGH) counts as a click
-    if (reading == HIGH) {
+    // Button pressed (LOW)
+    if (reading == LOW) {
+      pressStart = now;
+    }
+    // Button released (HIGH)
+    else {
       clickCount++;
       if (clickCount == 1) {
         firstReleaseTime = now;
@@ -46,6 +51,13 @@ ModeClickEvent chkModeButton() {
         }
       }
     }
+  }
+
+  // Check for long press (button held down)
+  if (lastStable == LOW && pressStart > 0 && (now - pressStart >= LONG_PRESS_MS)) {
+    pressStart = 0;  // Reset to avoid repeated triggers
+    clickCount = 0;  // Clear any pending clicks
+    return ModeLongPress;
   }
 
   // Single-click when double-click window expires with only 1 click

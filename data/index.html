@@ -19,6 +19,8 @@
         <div class='text-end'>
           <div class='status-label'>Device IP</div>
           <div class='status-value small' id='deviceIp'>-</div>
+          <div class='status-label mt-1'>WiFi Network</div>
+          <div class='status-value small' id='wifiSSID'>-</div>
         </div>
       </div>
 
@@ -93,6 +95,18 @@
             </button>
           </div>
           <div class='small text-muted mt-1'>Configure target relay device IP</div>
+        </div>
+      </div>
+    </div>
+
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='mb-2'>
+          <div class='fw-semibold mb-1'>WiFi Configuration</div>
+          <div class='small text-muted mb-2'>Hold button for 3 seconds or click below to reset WiFi and reconfigure</div>
+          <button id='btnResetWifi' class='btn btn-pill btn-sm btn-outline-danger w-100 btn-icon' type='button'>
+            <i class='bi bi-wifi-off'></i> Reset WiFi Settings
+          </button>
         </div>
       </div>
     </div>

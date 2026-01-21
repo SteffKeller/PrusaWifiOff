@@ -11,16 +11,18 @@
 #include <Arduino.h>
 
 constexpr int INPUT_PIN_MODE = 39;         ///< GPIO pin for mode button input
-constexpr uint32_t DEBOUNCE_MS = 60;       ///< Debounce time in milliseconds
-constexpr uint32_t DOUBLE_CLICK_MS = 250;  ///< Double-click detection window in ms
+const uint32_t DEBOUNCE_MS = 60;       ///< Debounce time in milliseconds
+const uint32_t DOUBLE_CLICK_MS = 250;  ///< Double-click detection window in ms
+const uint32_t LONG_PRESS_MS = 3000;   ///< Long press duration for WiFi reset in ms
 
 /**
  * @brief Button click event types
  */
 enum ModeClickEvent {
-  ModeNone,          ///< No click detected
+  ModeNone,          ///< No event detected
   ModeSingleClick,   ///< Single click detected
-  ModeDoubleClick    ///< Double click detected
+  ModeDoubleClick,   ///< Double click detected
+  ModeLongPress      ///< Long press detected (3+ seconds)
 };
 
 /**

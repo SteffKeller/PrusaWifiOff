@@ -19,14 +19,12 @@
 #include <Preferences.h>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <WiFiManager.h>
 #include "LedDisplay.h"
 #include "ButtonMode.h"
 #include "WebUi.h"
-#include "wifi_cred.h"
 
-// WiFi credentials from local gitignored file
-const char* WIFI_SSID = WIFI_SSID_CONFIG; ///< WiFi SSID from wifi_cred.h
-const char* WIFI_PASS = WIFI_PASS_CONFIG; ///< WiFi password from wifi_cred.h
+WiFiManager wifiManager; ///< WiFiManager for captive portal configuration
 
 constexpr int INPUT_PIN = 23; ///< GPIO pin for external signal monitoring (printer status)
 
@@ -122,14 +120,14 @@ void sendToggle() { sendGet(getUrlToggle()); }
 
 /**
  * @brief Ensure WiFi connection is active, reconnect if needed
- * @note Blocks up to 10 seconds waiting for connection, logs status to Serial
+ * @note Uses WiFiManager to handle connection and configuration
  */
 void ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) return;
 
-  Serial.printf("Connecting to WiFi: %s\n", WIFI_SSID);
+  Serial.println("WiFi disconnected, attempting reconnect...");
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.reconnect();
 
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 10000) {
@@ -139,10 +137,10 @@ void ensureWifi() {
   Serial.println();
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("WiFi OK, IP: ");
+    Serial.print("WiFi reconnected, IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("WiFi connect timeout.");
+    Serial.println("WiFi reconnect failed. Reset device or press button to reconfigure.");
   }
 }
 
@@ -219,7 +217,37 @@ void setup() {
   pinMode(INPUT_PIN,      INPUT_PULLUP);
   pinMode(INPUT_PIN_MODE, INPUT_PULLUP);
 
-  ensureWifi();
+  // WiFiManager setup
+  Serial.println("Starting WiFi configuration...");
+  
+  // Set custom AP name and timeout
+  wifiManager.setConfigPortalTimeout(180); // 3 minutes timeout
+  wifiManager.setAPCallback([](WiFiManager *myWiFiManager) {
+    Serial.println("Entered config mode");
+    Serial.println("AP Name: " + String(myWiFiManager->getConfigPortalSSID()));
+    Serial.println("AP IP: " + WiFi.softAPIP().toString());
+    // Show blue pattern on LED to indicate config mode
+    clearMatrix();
+    for (int i = 0; i < 25; i++) {
+      M5.dis.drawpix(i, 0x0000FF);
+    }
+  });
+
+  // Auto-connect or start config portal
+  if (!wifiManager.autoConnect("M5Stack-AutoOff")) {
+    Serial.println("Failed to connect and timeout occurred");
+    // Show red LED for failed connection
+    clearMatrix();
+    for (int i = 0; i < 25; i++) {
+      M5.dis.drawpix(i, 0xFF0000);
+    }
+    delay(3000);
+    ESP.restart();
+  }
+
+  Serial.println("WiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 
   lastState = digitalRead(INPUT_PIN);
 
@@ -278,6 +306,16 @@ void loop() {
     } else {
       showAutoOffDisabled();
     }
+  } else if (evt == ModeLongPress) {
+    Serial.println("Mode LONG-PRESS -> Reset WiFi settings and restart");
+    clearMatrix();
+    // Show magenta/purple pattern for WiFi reset
+    for (int i = 0; i < 25; i++) {
+      M5.dis.drawpix(i, 0xFF00FF);
+    }
+    wifiManager.resetSettings();
+    delay(2000);
+    ESP.restart();
   }
 
   if (autoPowerOffEnabled) {

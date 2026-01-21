@@ -38,6 +38,19 @@ document.getElementById('btnSaveIp').onclick = async function() {
   }
 };
 
+// WiFi Reset button
+document.getElementById('btnResetWifi').onclick = async function() {
+  if (!confirm('This will reset WiFi settings and restart the device. You will need to reconnect to the "M5Stack-AutoOff" access point to reconfigure. Continue?')) {
+    return;
+  }
+  try {
+    await fetch('/api/reset_wifi');
+    alert('Device is restarting. Please connect to "M5Stack-AutoOff" WiFi network to reconfigure.');
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 // Slider setup
 const slider = document.getElementById('timerSlider');
 const sliderVal = document.getElementById('timerSliderValue');
@@ -80,6 +93,7 @@ async function refreshStatus() {
     const relayIpDisplay = document.getElementById('relayIpDisplay');
     const relayStateBadge = document.getElementById('relayStateBadge');
     const deviceIp = document.getElementById('deviceIp');
+    const wifiSSID = document.getElementById('wifiSSID');
     
     const rv = j.report_valid;
     const relay = j.relay;
@@ -87,6 +101,11 @@ async function refreshStatus() {
     // Update device IP
     if (j.device_ip) {
       deviceIp.textContent = j.device_ip;
+    }
+    
+    // Update WiFi SSID
+    if (j.wifi_ssid) {
+      wifiSSID.textContent = j.wifi_ssid;
     }
     
     // Update relay IP

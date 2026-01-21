@@ -12,8 +12,12 @@
 #include <M5Atom.h>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <WiFiManager.h>
 #include "WebUi.h"
 #include "LedDisplay.h"
+
+// External WiFiManager from main.cpp
+extern WiFiManager wifiManager;
 
 // External state from main.cpp
 extern bool autoPowerOffEnabled;
@@ -99,6 +103,7 @@ void startWebServer()
 
         uint32_t timerMinutes = offDelayMs / 60000UL;
         String deviceIp = WiFi.localIP().toString();
+        String wifiSSID = WiFi.SSID();
 
         String json = "{";
         json += "\"auto_mode\":"     + String(autoPowerOffEnabled ? "true" : "false") + ",";
@@ -115,7 +120,8 @@ void startWebServer()
         json += "\"time_boot\":"     + String(reportTimeBoot) + ",";
         json += "\"boot_id\":\""     + reportBootId + "\",";
         json += "\"relay_ip\":\""    + relayIpAddress + "\",";
-        json += "\"device_ip\":\""   + deviceIp + "\"";
+        json += "\"device_ip\":\""   + deviceIp + "\",";
+        json += "\"wifi_ssid\":\""   + wifiSSID + "\"";
         json += "}";
         server.send(200, "application/json", json); });
 
@@ -190,6 +196,15 @@ void startWebServer()
         Serial.println("Stored relay IP: " + relayIpAddress);
 
         server.send(200, "text/plain", "ok"); });
+
+    server.on("/api/reset_wifi", HTTP_GET, []()
+              {
+        Serial.println("WiFi reset requested via web UI");
+        server.send(200, "text/plain", "Resetting WiFi settings and restarting...");
+        delay(500);
+        wifiManager.resetSettings();
+        delay(1000);
+        ESP.restart(); });
 
     server.begin();
     Serial.println("HTTP server started");
