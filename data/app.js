@@ -173,9 +173,32 @@ async function refreshStatus() {
     const relayStateBadge = document.getElementById('relayStateBadge');
     const deviceIp = document.getElementById('deviceIp');
     const wifiSSID = document.getElementById('wifiSSID');
+    const relayWarning = document.getElementById('relayWarning');
+    const relayWarningIp = document.getElementById('relayWarningIp');
     
     const rv = j.report_valid;
     const relay = j.relay;
+    
+    // Show/hide relay connection warning
+    if (j.relay_ip) {
+      relayWarningIp.textContent = j.relay_ip;
+    }
+    if (!rv && j.relay_ip) {
+      relayWarning.style.display = 'block';
+      // Add visual highlight to IP input when connection fails
+      relayIpInput.style.borderColor = 'rgba(249,104,49,0.8)';
+      relayIpInput.style.boxShadow = '0 0 0 0.25rem rgba(249,104,49,0.25)';
+      // Auto-expand the Relay IP section when there's an error
+      const collapseRelayIp = document.getElementById('collapseRelayIp');
+      if (collapseRelayIp && !collapseRelayIp.classList.contains('show')) {
+        const bsCollapse = new bootstrap.Collapse(collapseRelayIp, { toggle: true });
+      }
+    } else {
+      relayWarning.style.display = 'none';
+      // Remove highlight when connection is ok
+      relayIpInput.style.borderColor = '';
+      relayIpInput.style.boxShadow = '';
+    }
     
     // Update device IP
     if (j.device_ip) {
@@ -261,6 +284,32 @@ async function refreshStatus() {
 // ============================================================================
 // Initialization
 // ============================================================================
+
+/**
+ * Animate chevron icons when collapse sections are toggled
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  // Get all collapse elements
+  const collapseElements = document.querySelectorAll('.collapse');
+  
+  collapseElements.forEach(function(element) {
+    element.addEventListener('show.bs.collapse', function() {
+      const icon = this.parentElement.querySelector('.bi-chevron-down');
+      if (icon) {
+        icon.classList.remove('bi-chevron-down');
+        icon.classList.add('bi-chevron-up');
+      }
+    });
+    
+    element.addEventListener('hide.bs.collapse', function() {
+      const icon = this.parentElement.querySelector('.bi-chevron-up');
+      if (icon) {
+        icon.classList.remove('bi-chevron-up');
+        icon.classList.add('bi-chevron-down');
+      }
+    });
+  });
+});
 
 /**
  * Start automatic status polling and perform initial update

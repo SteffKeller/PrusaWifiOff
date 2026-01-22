@@ -31,11 +31,14 @@ extern String reportBootId;
 extern float reportEnergyBoot;
 extern uint32_t reportTimeBoot;
 extern String relayIpAddress;
+extern uint32_t consecutiveErrors;
+extern uint32_t lastReportPollMs;
 
 // External control functions from main.cpp
 void sendOff();
 void sendOn();
 void sendToggle();
+void updateReportStatus();
 
 /**
  * @brief Get MIME type from file extension
@@ -194,6 +197,11 @@ void startWebServer()
         prefs.putString("relay_ip", relayIpAddress);
         prefs.end();
         Serial.println("Stored relay IP: " + relayIpAddress);
+
+        // Reset error counter and force immediate status poll
+        consecutiveErrors = 0;
+        lastReportPollMs = 0;
+        updateReportStatus();
 
         server.send(200, "text/plain", "ok"); });
 

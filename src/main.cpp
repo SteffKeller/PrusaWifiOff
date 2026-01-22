@@ -77,6 +77,8 @@ uint32_t reportTimeBoot    = 0;        ///< Time since boot in seconds
 
 uint32_t lastReportPollMs  = 0;        ///< Timestamp of last status poll
 constexpr uint32_t REPORT_POLL_INTERVAL_MS = 5000; ///< Poll relay every 5 seconds
+constexpr uint32_t REPORT_POLL_INTERVAL_ERROR_MS = 30000; ///< Poll every 30 seconds when errors occur
+uint32_t consecutiveErrors = 0;        ///< Count of consecutive connection failures
 
 Preferences prefs;                     ///< ESP32 NVS preferences storage
 uint32_t offDelayMs = 10UL * 60UL * 1000UL; ///< Auto-off delay (default 10 minutes)
@@ -98,7 +100,8 @@ void sendGet(const String& url) {
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http;
   http.begin(url);
-  http.setTimeout(2000); // 2 second timeout
+  http.setTimeout(300); // 300ms timeout - fail fast
+  http.setConnectTimeout(300); // Also set connection timeout
   int code = http.GET();
   Serial.printf("GET %s -> HTTP %d\n", url.c_str(), code);
   http.end();
@@ -158,10 +161,15 @@ void updateReportStatus() {
 
   HTTPClient http;
   http.begin(getUrlReport());
-  http.setTimeout(2000); // 2 second timeout
+  http.setTimeout(300); // 300ms timeout - fail fast if unreachable
+  http.setConnectTimeout(300); // Also set connection timeout
   int code = http.GET();
   if (code != 200) {
-    Serial.printf("REPORT GET -> HTTP %d\n", code);
+    consecutiveErrors++;
+    // Only log first error and every 10th error to reduce spam
+    if (consecutiveErrors == 1 || consecutiveErrors % 10 == 0) {
+      Serial.printf("REPORT GET -> HTTP %d (errors: %d)\n", code, consecutiveErrors);
+    }
     http.end();
     reportValid = false;
     return;
@@ -173,6 +181,7 @@ void updateReportStatus() {
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
+    consecutiveErrors++;
     Serial.print("REPORT JSON parse failed: ");
     Serial.println(err.c_str());
     reportValid = false;
@@ -188,6 +197,7 @@ void updateReportStatus() {
   reportTimeBoot    = doc["time_since_boot"] | 0;
 
   reportValid       = true;
+  consecutiveErrors = 0; // Reset on success
   Serial.println("REPORT updated");
 }
 
@@ -210,7 +220,9 @@ void setup() {
 
   prefs.begin("coreone", false);  // Namespace
   offDelayMs = prefs.getUInt("off_delay_ms", offDelayMs); // Load from NVS, use default if not set
-  relayIpAddress = prefs.getString("relay_ip", relayIpAddress); // Load relay IP
+ relayIpAddress = prefs.getString("relay_ip", "relayIpAddress"); // Load relay IP
+//  relayIpAddress = "192.168.188.44";// prefs.getString("relay_ip", "relayIpAddress"); // Load relay IP
+
   prefs.end();
 
   Serial.println("Load offDelayMs: " + String(offDelayMs));
@@ -278,8 +290,9 @@ void loop() {
     ensureWifi();
   }
 
-  // Poll relay status every 5 seconds
-  if (now - lastReportPollMs >= REPORT_POLL_INTERVAL_MS) {
+  // Poll relay status - use longer interval if errors occurring
+  uint32_t pollInterval = (consecutiveErrors > 3) ? REPORT_POLL_INTERVAL_ERROR_MS : REPORT_POLL_INTERVAL_MS;
+  if (now - lastReportPollMs >= pollInterval) {
     lastReportPollMs = now;
     updateReportStatus();
   }
