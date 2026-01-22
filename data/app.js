@@ -107,6 +107,48 @@ document.getElementById('btnResetWifi').onclick = async function() {
   }
 };
 
+/**
+ * Update authentication credentials
+ */
+document.getElementById('btnSaveAuth').onclick = async function() {
+  const user = document.getElementById('authUsername').value.trim();
+  const pass = document.getElementById('authPassword').value.trim();
+  
+  if (!user || !pass) {
+    alert('Please enter both username and password');
+    return;
+  }
+  
+  if (user.length < 3) {
+    alert('Username must be at least 3 characters');
+    return;
+  }
+  
+  if (pass.length < 4) {
+    alert('Password must be at least 4 characters');
+    return;
+  }
+  
+  if (!confirm('Update authentication credentials? You will need to re-authenticate with the new credentials.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/set_auth?user=' + encodeURIComponent(user) + '&pass=' + encodeURIComponent(pass));
+    if (response.ok) {
+      alert('Credentials updated successfully! Please re-authenticate when prompted.');
+      // Clear password field for security
+      document.getElementById('authPassword').value = '';
+    } else {
+      const text = await response.text();
+      alert('Error: ' + text);
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Failed to update credentials');
+  }
+};
+
 // ============================================================================
 // Timer Configuration Slider
 // ============================================================================

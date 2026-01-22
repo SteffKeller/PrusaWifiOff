@@ -281,6 +281,24 @@ void loop() {
   // Handle web requests first - highest priority for responsiveness
   server.handleClient();
 
+  // Check for serial commands
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd == "reset_auth" || cmd == "reset_password") {
+      Serial.println("Resetting authentication credentials to defaults...");
+      Preferences prefs;
+      prefs.begin("coreone", false);
+      prefs.putString("auth_user", "admin");
+      prefs.putString("auth_pass", "prusa");
+      prefs.end();
+      Serial.println("✓ Credentials reset!");
+      Serial.println("Username: admin");
+      Serial.println("Password: prusa");
+      Serial.println("Changes will take effect on next restart or reconnect.");
+    }
+  }
+
   uint32_t now = millis();
 
   // Only check WiFi periodically, not every loop iteration

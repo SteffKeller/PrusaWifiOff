@@ -34,11 +34,27 @@ extern String relayIpAddress;
 extern uint32_t consecutiveErrors;
 extern uint32_t lastReportPollMs;
 
+// Authentication credentials (stored in NVS)
+String authUsername = "admin";
+String authPassword = "prusa";
+
 // External control functions from main.cpp
 void sendOff();
 void sendOn();
 void sendToggle();
 void updateReportStatus();
+
+/**
+ * @brief Check HTTP Basic Authentication
+ * @return true if authenticated, false otherwise
+ */
+bool checkAuth() {
+    if (!server.authenticate(authUsername.c_str(), authPassword.c_str())) {
+        server.requestAuthentication();
+        return false;
+    }
+    return true;
+}
 
 /**
  * @brief Get MIME type from file extension
@@ -84,18 +100,30 @@ bool handleFileRead(String path) {
 
 void startWebServer()
 {
+    // Load authentication credentials from NVS
+    Preferences prefs;
+    prefs.begin("coreone", true); // Read-only
+    authUsername = prefs.getString("auth_user", "admin");
+    authPassword = prefs.getString("auth_pass", "prusa");
+    prefs.end();
+    Serial.println("Auth enabled - User: " + authUsername);
+
     // Serve static files from LittleFS
     server.onNotFound([]() {
+        if (!checkAuth()) return;
         if (!handleFileRead(server.uri())) {
             server.send(404, "text/plain", "404: Not Found");
         }
     });
 
     server.on("/", HTTP_GET, []()
-              { handleFileRead("/index.html"); });
+              { 
+        if (!checkAuth()) return;
+        handleFileRead("/index.html"); });
 
     server.on("/api/status", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         uint32_t now = millis();
         bool timer = offTimerRunning;
         uint32_t remaining = 0;
@@ -130,6 +158,7 @@ void startWebServer()
 
     server.on("/api/mode", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         autoPowerOffEnabled = !autoPowerOffEnabled;
         offTimerRunning = false;
         if (autoPowerOffEnabled) {
@@ -141,6 +170,7 @@ void startWebServer()
 
     server.on("/api/off_now", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         offTimerRunning = false;
         sendOff();
         clearMatrix();
@@ -150,16 +180,19 @@ void startWebServer()
 
     server.on("/api/on_now", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         sendOn();
         server.send(200, "text/plain", "on_now=OK"); });
 
     server.on("/api/toggle", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         sendToggle();
         server.send(200, "text/plain", "toggle=OK"); });
 
     server.on("/api/set_timer", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         if (!server.hasArg("minutes")) {
           server.send(400, "text/plain", "missing minutes");
           return;
@@ -170,6 +203,7 @@ void startWebServer()
 
         offDelayMs = (uint32_t)minutes * 60UL * 1000UL;
 
+        Preferences prefs;
         prefs.begin("coreone", false);
         prefs.putUInt("off_delay_ms", offDelayMs); 
         prefs.end();
@@ -179,6 +213,7 @@ void startWebServer()
 
     server.on("/api/set_relay_ip", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         if (!server.hasArg("ip")) {
           server.send(400, "text/plain", "missing ip");
           return;
@@ -193,6 +228,7 @@ void startWebServer()
 
         relayIpAddress = newIp;
 
+        Preferences prefs;
         prefs.begin("coreone", false);
         prefs.putString("relay_ip", relayIpAddress);
         prefs.end();
@@ -205,8 +241,38 @@ void startWebServer()
 
         server.send(200, "text/plain", "ok"); });
 
+    server.on("/api/set_auth", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        if (!server.hasArg("user") || !server.hasArg("pass")) {
+          server.send(400, "text/plain", "missing user or pass");
+          return;
+        }
+        String newUser = server.arg("user");
+        String newPass = server.arg("pass");
+        newUser.trim();
+        newPass.trim();
+        
+        if (newUser.length() < 3 || newPass.length() < 4) {
+          server.send(400, "text/plain", "username min 3 chars, password min 4 chars");
+          return;
+        }
+
+        authUsername = newUser;
+        authPassword = newPass;
+
+        Preferences prefs;
+        prefs.begin("coreone", false);
+        prefs.putString("auth_user", authUsername);
+        prefs.putString("auth_pass", authPassword);
+        prefs.end();
+        Serial.println("Updated auth - User: " + authUsername);
+
+        server.send(200, "text/plain", "ok"); });
+
     server.on("/api/reset_wifi", HTTP_GET, []()
               {
+        if (!checkAuth()) return;
         Serial.println("WiFi reset requested via web UI");
         server.send(200, "text/plain", "Resetting WiFi settings and restarting...");
         delay(500);
