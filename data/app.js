@@ -150,6 +150,67 @@ document.getElementById('btnSaveAuth').onclick = async function() {
 };
 
 // ============================================================================
+// Tariff Settings
+// ============================================================================
+
+/**
+ * Load tariff settings from device
+ */
+async function loadTariffSettings() {
+  try {
+    const r = await fetch('/api/tariff_get');
+    if (!r.ok) return;
+    const data = await r.json();
+    
+    document.getElementById('tariffHigh').value = data.high;
+    document.getElementById('tariffLow').value = data.low;
+    document.getElementById('tariffCurrency').value = data.currency;
+    document.getElementById('tariffStartHour').value = data.start_hour;
+    document.getElementById('tariffEndHour').value = data.end_hour;
+  } catch (e) {
+    console.error('Failed to load tariff settings:', e);
+  }
+}
+
+/**
+ * Save tariff settings to device
+ */
+document.getElementById('btnSaveTariff').onclick = async function() {
+  const high = document.getElementById('tariffHigh').value;
+  const low = document.getElementById('tariffLow').value;
+  const curr = document.getElementById('tariffCurrency').value.trim();
+  const start = document.getElementById('tariffStartHour').value;
+  const end = document.getElementById('tariffEndHour').value;
+  
+  if (!high || !low || !curr) {
+    alert('Please fill in all tariff fields');
+    return;
+  }
+  
+  if (parseFloat(high) <= 0 || parseFloat(low) <= 0) {
+    alert('Tariff values must be positive numbers');
+    return;
+  }
+  
+  try {
+    const url = '/api/tariff_set?high=' + encodeURIComponent(high) + 
+                '&low=' + encodeURIComponent(low) +
+                '&currency=' + encodeURIComponent(curr) +
+                '&start=' + encodeURIComponent(start) +
+                '&end=' + encodeURIComponent(end);
+    const response = await fetch(url);
+    if (response.ok) {
+      alert('Tariff settings saved successfully!');
+    } else {
+      alert('Failed to save tariff settings');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Error saving tariff settings');
+  }
+};
+
+// ============================================================================
 // Timer Configuration Slider
 // ============================================================================
 
@@ -390,6 +451,16 @@ function initGraph() {
           tension: 0.3,
           fill: true,
           yAxisID: 'y1'
+        },
+        {
+          label: 'Cost',
+          data: [],
+          borderColor: '#10B981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          yAxisID: 'y2'
         }
       ]
     },
@@ -466,6 +537,22 @@ function initGraph() {
           grid: {
             drawOnChartArea: false
           }
+        },
+        y2: {
+          type: 'linear',
+          display: false,
+          position: 'right',
+          title: {
+            display: false,
+            text: 'Cost',
+            color: '#10B981'
+          },
+          ticks: {
+            color: '#10B981'
+          },
+          grid: {
+            drawOnChartArea: false
+          }
         }
       }
     }
@@ -486,6 +573,7 @@ async function updateGraph() {
     powerChart.data.labels = data.timestamps;
     powerChart.data.datasets[0].data = data.power;
     powerChart.data.datasets[1].data = data.energy;
+    powerChart.data.datasets[2].data = data.cost;
     powerChart.update('none'); // No animation for smoother updates
   } catch (e) {
     console.error('Graph update error:', e);
@@ -542,15 +630,30 @@ async function updateLogStatus() {
 /**
  * Calculate and display total energy from graph data
  */
-function updateTotalEnergy() {
+async function updateTotalEnergy() {
   if (!powerChart || powerChart.data.datasets[1].data.length === 0) {
     document.getElementById('logTotalEnergy').textContent = '0 Wh';
     return;
   }
   
   const energyData = powerChart.data.datasets[1].data;
+  const costData = powerChart.data.datasets[2].data;
   const totalEnergy = energyData[energyData.length - 1] || 0;
-  document.getElementById('logTotalEnergy').textContent = totalEnergy.toFixed(2) + ' Wh';
+  const totalCost = costData[costData.length - 1] || 0;
+  
+  // Get currency from tariff settings
+  try {
+    const r = await fetch('/api/tariff_get');
+    if (r.ok) {
+      const tariff = await r.json();
+      document.getElementById('logTotalEnergy').textContent = 
+        totalEnergy.toFixed(2) + ' Wh (' + totalCost.toFixed(3) + ' ' + tariff.currency + ')';
+    } else {
+      document.getElementById('logTotalEnergy').textContent = totalEnergy.toFixed(2) + ' Wh';
+    }
+  } catch (e) {
+    document.getElementById('logTotalEnergy').textContent = totalEnergy.toFixed(2) + ' Wh';
+  }
 }
 
 // ============================================================================
@@ -577,6 +680,7 @@ document.getElementById('btnClearLog').onclick = async function() {
     powerChart.data.labels = [];
     powerChart.data.datasets[0].data = [];
     powerChart.data.datasets[1].data = [];
+    powerChart.data.datasets[2].data = [];
     powerChart.update();
   }
   document.getElementById('logTotalEnergy').textContent = '0 Wh';
@@ -592,6 +696,7 @@ refreshStatus();
 document.addEventListener('DOMContentLoaded', function() {
   initGraph();
   updateLogStatus();
+  loadTariffSettings();
   // Update log status every 2 seconds
   setInterval(() => {
     updateLogStatus();

@@ -90,6 +90,7 @@ struct PowerLogEntry {
   uint32_t timestamp;  // Milliseconds since boot
   float power;         // Watts
   float energy;        // Wh cumulative
+  float cost;          // Cost in currency
 };
 
 PowerLogEntry powerLog[MAX_LOG_ENTRIES];
@@ -100,6 +101,13 @@ uint32_t loggingStartMs = 0;
 float energyStartWh = 0.0f;  // Energy at start of logging
 uint32_t lastLogMs = 0;
 constexpr uint32_t LOG_INTERVAL_MS = 10000;  ///< Log every 10 seconds
+
+// Tariff settings (stored in NVS)
+float tariffHigh = 0.30f;      ///< High tariff price per kWh (default 0.30 EUR)
+float tariffLow = 0.20f;       ///< Low tariff price per kWh (default 0.20 EUR)
+String currency = "EUR";       ///< Currency symbol (EUR, USD, GBP, etc.)
+int tariffSwitchHour = 22;     ///< Hour when low tariff starts (22:00 = 10 PM)
+int tariffSwitchEndHour = 6;   ///< Hour when low tariff ends (06:00 = 6 AM)
 
 // Forward declarations
 void ensureWifi();
@@ -112,6 +120,70 @@ void startLogging();
 void stopLogging();
 void clearLog();
 void logPowerData();
+float getCurrentTariff();
+void loadTariffSettings();
+void saveTariffSettings();
+
+/**
+ * @brief Get current tariff rate based on time of day
+ * @return Current tariff price per kWh
+ */
+float getCurrentTariff() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    return tariffHigh; // Default to high tariff if time unavailable
+  }
+  
+  int currentHour = timeinfo.tm_hour;
+  
+  // Check if we're in low tariff period
+  if (tariffSwitchHour < tariffSwitchEndHour) {
+    // Normal case: e.g., 1:00 to 6:00
+    if (currentHour >= tariffSwitchHour && currentHour < tariffSwitchEndHour) {
+      return tariffLow;
+    }
+  } else {
+    // Overnight case: e.g., 22:00 to 6:00
+    if (currentHour >= tariffSwitchHour || currentHour < tariffSwitchEndHour) {
+      return tariffLow;
+    }
+  }
+  
+  return tariffHigh;
+}
+
+/**
+ * @brief Load tariff settings from NVS
+ */
+void loadTariffSettings() {
+  Preferences prefs;
+  prefs.begin("coreone", true); // Read-only
+  tariffHigh = prefs.getFloat("tariff_high", 0.30f);
+  tariffLow = prefs.getFloat("tariff_low", 0.20f);
+  currency = prefs.getString("currency", "EUR");
+  tariffSwitchHour = prefs.getInt("tariff_start", 22);
+  tariffSwitchEndHour = prefs.getInt("tariff_end", 6);
+  prefs.end();
+  
+  Serial.printf("Loaded tariffs: High=%.4f, Low=%.4f %s, Period=%02d:00-%02d:00\n", 
+                tariffHigh, tariffLow, currency.c_str(), tariffSwitchHour, tariffSwitchEndHour);
+}
+
+/**
+ * @brief Save tariff settings to NVS
+ */
+void saveTariffSettings() {
+  Preferences prefs;
+  prefs.begin("coreone", false);
+  prefs.putFloat("tariff_high", tariffHigh);
+  prefs.putFloat("tariff_low", tariffLow);
+  prefs.putString("currency", currency);
+  prefs.putInt("tariff_start", tariffSwitchHour);
+  prefs.putInt("tariff_end", tariffSwitchEndHour);
+  prefs.end();
+  
+  Serial.println("Tariff settings saved");
+}
 
 /**
  * @brief Send HTTP GET request to relay device
@@ -281,6 +353,10 @@ void logPowerData() {
   entry.power = reportPower;
   entry.energy = reportEnergyBoot - energyStartWh;  // Cumulative energy since logging started
   
+  // Calculate cost: energy in Wh converted to kWh, multiplied by current tariff
+  float currentTariff = getCurrentTariff();
+  entry.cost = (entry.energy / 1000.0f) * currentTariff;  // Wh to kWh
+  
   powerLogIndex = (powerLogIndex + 1) % MAX_LOG_ENTRIES;
   if (powerLogCount < MAX_LOG_ENTRIES) {
     powerLogCount++;
@@ -313,6 +389,13 @@ void setup() {
 
   Serial.println("Load offDelayMs: " + String(offDelayMs));
   Serial.println("Load relayIpAddress: " + relayIpAddress);
+
+  // Load tariff settings
+  loadTariffSettings();
+  
+  // Configure NTP for time-based tariff switching
+  configTime(3600, 3600, "pool.ntp.org", "time.nist.gov");  // GMT+1 with DST
+  Serial.println("NTP time sync started");
 
   pinMode(INPUT_PIN,      INPUT_PULLUP);
   pinMode(INPUT_PIN_MODE, INPUT_PULLUP);

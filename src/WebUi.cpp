@@ -41,12 +41,20 @@ struct PowerLogEntry {
   uint32_t timestamp;
   float power;
   float energy;
+  float cost;
 };
 extern PowerLogEntry powerLog[];
 extern size_t powerLogCount;
 extern size_t powerLogIndex;
 extern bool loggingEnabled;
 extern uint32_t loggingStartMs;
+
+// Tariff settings externals
+extern float tariffHigh;
+extern float tariffLow;
+extern String currency;
+extern int tariffSwitchHour;
+extern int tariffSwitchEndHour;
 
 // Authentication credentials (stored in NVS)
 String authUsername = "admin";
@@ -60,6 +68,7 @@ void updateReportStatus();
 void startLogging();
 void stopLogging();
 void clearLog();
+void saveTariffSettings();
 
 /**
  * @brief Check HTTP Basic Authentication
@@ -332,7 +341,7 @@ void startWebServer()
         if (!checkAuth()) return;
         
         if (powerLogCount == 0) {
-          server.send(200, "application/json", "{\"timestamps\":[],\"power\":[],\"energy\":[]}");
+          server.send(200, "application/json", "{\"timestamps\":[],\"power\":[],\"energy\":[],\"cost\":[]}");
           return;
         }
 
@@ -361,9 +370,70 @@ void startWebServer()
           if (i > 0) json += ",";
           json += String(powerLog[idx].energy, 3);
         }
+        json += "],\"cost\":[";
+        
+        // Build cost array
+        for (size_t i = 0; i < powerLogCount; i++) {
+          size_t idx = (startIdx + i) % MAX_LOG_ENTRIES;
+          if (i > 0) json += ",";
+          json += String(powerLog[idx].cost, 4);
+        }
         json += "]}";
         
         server.send(200, "application/json", json); });
+
+    // Tariff settings API endpoints
+    server.on("/api/tariff_get", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        String json = "{";
+        json += "\"high\":" + String(tariffHigh, 4) + ",";
+        json += "\"low\":" + String(tariffLow, 4) + ",";
+        json += "\"currency\":\"" + currency + "\",";
+        json += "\"start_hour\":" + String(tariffSwitchHour) + ",";
+        json += "\"end_hour\":" + String(tariffSwitchEndHour);
+        json += "}";
+        server.send(200, "application/json", json); });
+
+    server.on("/api/tariff_set", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        bool changed = false;
+        
+        if (server.hasArg("high")) {
+          tariffHigh = server.arg("high").toFloat();
+          changed = true;
+        }
+        if (server.hasArg("low")) {
+          tariffLow = server.arg("low").toFloat();
+          changed = true;
+        }
+        if (server.hasArg("currency")) {
+          currency = server.arg("currency");
+          currency.trim();
+          if (currency.length() > 10) currency = currency.substring(0, 10);
+          changed = true;
+        }
+        if (server.hasArg("start")) {
+          tariffSwitchHour = server.arg("start").toInt();
+          if (tariffSwitchHour < 0) tariffSwitchHour = 0;
+          if (tariffSwitchHour > 23) tariffSwitchHour = 23;
+          changed = true;
+        }
+        if (server.hasArg("end")) {
+          tariffSwitchEndHour = server.arg("end").toInt();
+          if (tariffSwitchEndHour < 0) tariffSwitchEndHour = 0;
+          if (tariffSwitchEndHour > 23) tariffSwitchEndHour = 23;
+          changed = true;
+        }
+        
+        if (changed) {
+          saveTariffSettings();
+          server.send(200, "text/plain", "tariff settings saved");
+        } else {
+          server.send(400, "text/plain", "no parameters provided");
+        } });
 
     server.begin();
     Serial.println("HTTP server started");
