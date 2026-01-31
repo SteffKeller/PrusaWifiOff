@@ -34,6 +34,20 @@ extern String relayIpAddress;
 extern uint32_t consecutiveErrors;
 extern uint32_t lastReportPollMs;
 
+// Power logging constants and externals
+#define MAX_LOG_ENTRIES 500  // Must match main.cpp definition
+
+struct PowerLogEntry {
+  uint32_t timestamp;
+  float power;
+  float energy;
+};
+extern PowerLogEntry powerLog[];
+extern size_t powerLogCount;
+extern size_t powerLogIndex;
+extern bool loggingEnabled;
+extern uint32_t loggingStartMs;
+
 // Authentication credentials (stored in NVS)
 String authUsername = "admin";
 String authPassword = "prusa";
@@ -43,6 +57,9 @@ void sendOff();
 void sendOn();
 void sendToggle();
 void updateReportStatus();
+void startLogging();
+void stopLogging();
+void clearLog();
 
 /**
  * @brief Check HTTP Basic Authentication
@@ -279,6 +296,74 @@ void startWebServer()
         wifiManager.resetSettings();
         delay(1000);
         ESP.restart(); });
+
+    // Power logging API endpoints
+    server.on("/api/log_start", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        startLogging();
+        server.send(200, "text/plain", "logging started"); });
+
+    server.on("/api/log_stop", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        stopLogging();
+        server.send(200, "text/plain", "logging stopped"); });
+
+    server.on("/api/log_clear", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        clearLog();
+        server.send(200, "text/plain", "log cleared"); });
+
+    server.on("/api/log_status", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        String json = "{";
+        json += "\"enabled\":" + String(loggingEnabled ? "true" : "false") + ",";
+        json += "\"count\":" + String(powerLogCount) + ",";
+        json += "\"max\":" + String(MAX_LOG_ENTRIES) + ",";
+        json += "\"duration_ms\":" + String(loggingEnabled ? (millis() - loggingStartMs) : 0);
+        json += "}";
+        server.send(200, "application/json", json); });
+
+    server.on("/api/log_data", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        if (powerLogCount == 0) {
+          server.send(200, "application/json", "{\"timestamps\":[],\"power\":[],\"energy\":[]}");
+          return;
+        }
+
+        String json = "{\"timestamps\":[";
+        
+        // Build timestamps array
+        size_t startIdx = (powerLogCount < MAX_LOG_ENTRIES) ? 0 : powerLogIndex;
+        for (size_t i = 0; i < powerLogCount; i++) {
+          size_t idx = (startIdx + i) % MAX_LOG_ENTRIES;
+          if (i > 0) json += ",";
+          json += String(powerLog[idx].timestamp);
+        }
+        json += "],\"power\":[";
+        
+        // Build power array
+        for (size_t i = 0; i < powerLogCount; i++) {
+          size_t idx = (startIdx + i) % MAX_LOG_ENTRIES;
+          if (i > 0) json += ",";
+          json += String(powerLog[idx].power, 2);
+        }
+        json += "],\"energy\":[";
+        
+        // Build energy array
+        for (size_t i = 0; i < powerLogCount; i++) {
+          size_t idx = (startIdx + i) % MAX_LOG_ENTRIES;
+          if (i > 0) json += ",";
+          json += String(powerLog[idx].energy, 3);
+        }
+        json += "]}";
+        
+        server.send(200, "application/json", json); });
 
     server.begin();
     Serial.println("HTTP server started");

@@ -353,8 +353,249 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// ============================================================================
+// Power/Energy Graph with Chart.js
+// ============================================================================
+
+let powerChart = null;
+
+/**
+ * Initialize Chart.js power/energy graph
+ */
+function initGraph() {
+  const ctx = document.getElementById('powerChart');
+  if (!ctx) return;
+
+  powerChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Power (W)',
+          data: [],
+          borderColor: '#F96831',
+          backgroundColor: 'rgba(249, 104, 49, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Energy (Wh)',
+          data: [],
+          borderColor: '#3B82F6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: {
+            color: '#e5e7eb',
+            font: { size: 11 }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#F96831',
+          bodyColor: '#e5e7eb',
+          borderColor: 'rgba(249, 104, 49, 0.5)',
+          borderWidth: 1
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: {
+            display: true,
+            text: 'Time (minutes)',
+            color: '#94a3b8'
+          },
+          ticks: {
+            color: '#94a3b8',
+            callback: function(value) {
+              return Math.floor(value / 60000);
+            }
+          },
+          grid: {
+            color: 'rgba(148, 163, 184, 0.1)'
+          }
+        },
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Power (W)',
+            color: '#F96831'
+          },
+          ticks: {
+            color: '#F96831'
+          },
+          grid: {
+            color: 'rgba(249, 104, 49, 0.1)'
+          }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Energy (Wh)',
+            color: '#3B82F6'
+          },
+          ticks: {
+            color: '#3B82F6'
+          },
+          grid: {
+            drawOnChartArea: false
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Update graph with new data from API
+ */
+async function updateGraph() {
+  if (!powerChart) return;
+
+  try {
+    const r = await fetch('/api/log_data');
+    if (!r.ok) return;
+    const data = await r.json();
+
+    powerChart.data.labels = data.timestamps;
+    powerChart.data.datasets[0].data = data.power;
+    powerChart.data.datasets[1].data = data.energy;
+    powerChart.update('none'); // No animation for smoother updates
+  } catch (e) {
+    console.error('Graph update error:', e);
+  }
+}
+
+/**
+ * Update logging status and controls
+ */
+async function updateLogStatus() {
+  try {
+    const r = await fetch('/api/log_status');
+    if (!r.ok) return;
+    const status = await r.json();
+
+    const badge = document.getElementById('logStatusBadge');
+    const startBtn = document.getElementById('btnStartLog');
+    const stopBtn = document.getElementById('btnStopLog');
+    const stats = document.getElementById('logStats');
+    const logCount = document.getElementById('logCount');
+    const logDuration = document.getElementById('logDuration');
+
+    if (status.enabled) {
+      badge.textContent = 'Recording';
+      badge.className = 'chip bg-danger text-light';
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      stats.style.display = 'block';
+
+      logCount.textContent = status.count + ' / ' + status.max;
+      const minutes = Math.floor(status.duration_ms / 60000);
+      logDuration.textContent = minutes + 'm';
+
+      // Update graph during active logging
+      await updateGraph();
+    } else {
+      badge.textContent = status.count > 0 ? 'Stopped' : 'Idle';
+      badge.className = status.count > 0 ? 'chip bg-warning text-dark' : 'chip bg-secondary text-light';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      
+      if (status.count > 0) {
+        stats.style.display = 'block';
+        logCount.textContent = status.count + ' / ' + status.max;
+      } else {
+        stats.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    console.error('Log status error:', e);
+  }
+}
+
+/**
+ * Calculate and display total energy from graph data
+ */
+function updateTotalEnergy() {
+  if (!powerChart || powerChart.data.datasets[1].data.length === 0) {
+    document.getElementById('logTotalEnergy').textContent = '0 Wh';
+    return;
+  }
+  
+  const energyData = powerChart.data.datasets[1].data;
+  const totalEnergy = energyData[energyData.length - 1] || 0;
+  document.getElementById('logTotalEnergy').textContent = totalEnergy.toFixed(2) + ' Wh';
+}
+
+// ============================================================================
+// Logging Button Handlers
+// ============================================================================
+
+document.getElementById('btnStartLog').onclick = async function() {
+  await apiCall('/api/log_start');
+  await updateLogStatus();
+};
+
+document.getElementById('btnStopLog').onclick = async function() {
+  await apiCall('/api/log_stop');
+  await updateLogStatus();
+  await updateGraph();
+  updateTotalEnergy();
+};
+
+document.getElementById('btnClearLog').onclick = async function() {
+  if (!confirm('Clear all logged data? This cannot be undone.')) return;
+  await apiCall('/api/log_clear');
+  await updateLogStatus();
+  if (powerChart) {
+    powerChart.data.labels = [];
+    powerChart.data.datasets[0].data = [];
+    powerChart.data.datasets[1].data = [];
+    powerChart.update();
+  }
+  document.getElementById('logTotalEnergy').textContent = '0 Wh';
+};
+
 /**
  * Start automatic status polling and perform initial update
  */
 setInterval(refreshStatus, 500);
 refreshStatus();
+
+// Initialize graph on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initGraph();
+  updateLogStatus();
+  // Update log status every 2 seconds
+  setInterval(() => {
+    updateLogStatus();
+    updateTotalEnergy();
+  }, 2000);
+});
+

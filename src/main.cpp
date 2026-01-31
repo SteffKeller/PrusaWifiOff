@@ -83,6 +83,24 @@ uint32_t consecutiveErrors = 0;        ///< Count of consecutive connection fail
 Preferences prefs;                     ///< ESP32 NVS preferences storage
 uint32_t offDelayMs = 10UL * 60UL * 1000UL; ///< Auto-off delay (default 10 minutes)
 
+// Power/Energy data logging
+#define MAX_LOG_ENTRIES 500  ///< Maximum number of log entries (fits in ~12KB RAM)
+
+struct PowerLogEntry {
+  uint32_t timestamp;  // Milliseconds since boot
+  float power;         // Watts
+  float energy;        // Wh cumulative
+};
+
+PowerLogEntry powerLog[MAX_LOG_ENTRIES];
+size_t powerLogCount = 0;
+size_t powerLogIndex = 0;  // Circular buffer index
+bool loggingEnabled = false;
+uint32_t loggingStartMs = 0;
+float energyStartWh = 0.0f;  // Energy at start of logging
+uint32_t lastLogMs = 0;
+constexpr uint32_t LOG_INTERVAL_MS = 10000;  ///< Log every 10 seconds
+
 // Forward declarations
 void ensureWifi();
 void sendGet(const String& url);
@@ -90,6 +108,10 @@ void sendOff();
 void sendOn();
 void sendToggle();
 void updateReportStatus();
+void startLogging();
+void stopLogging();
+void clearLog();
+void logPowerData();
 
 /**
  * @brief Send HTTP GET request to relay device
@@ -199,6 +221,70 @@ void updateReportStatus() {
   reportValid       = true;
   consecutiveErrors = 0; // Reset on success
   Serial.println("REPORT updated");
+  
+  // Log power data if logging is active
+  if (loggingEnabled) {
+    logPowerData();
+  }
+}
+
+/**
+ * @brief Start power/energy data logging
+ */
+void startLogging() {
+  if (loggingEnabled) return;
+  
+  loggingEnabled = true;
+  loggingStartMs = millis();
+  energyStartWh = reportEnergyBoot;  // Use current energy as baseline
+  powerLogCount = 0;
+  powerLogIndex = 0;
+  lastLogMs = 0;
+  
+  Serial.println("Power logging STARTED");
+}
+
+/**
+ * @brief Stop power/energy data logging
+ */
+void stopLogging() {
+  if (!loggingEnabled) return;
+  
+  loggingEnabled = false;
+  Serial.println("Power logging STOPPED");
+}
+
+/**
+ * @brief Clear all logged data
+ */
+void clearLog() {
+  powerLogCount = 0;
+  powerLogIndex = 0;
+  loggingStartMs = 0;
+  lastLogMs = 0;
+  Serial.println("Power log CLEARED");
+}
+
+/**
+ * @brief Log current power data to circular buffer
+ */
+void logPowerData() {
+  if (!loggingEnabled || !reportValid) return;
+  
+  uint32_t now = millis();
+  if (now - lastLogMs < LOG_INTERVAL_MS) return;  // Throttle logging
+  
+  lastLogMs = now;
+  
+  PowerLogEntry& entry = powerLog[powerLogIndex];
+  entry.timestamp = now - loggingStartMs;  // Relative to logging start
+  entry.power = reportPower;
+  entry.energy = reportEnergyBoot - energyStartWh;  // Cumulative energy since logging started
+  
+  powerLogIndex = (powerLogIndex + 1) % MAX_LOG_ENTRIES;
+  if (powerLogCount < MAX_LOG_ENTRIES) {
+    powerLogCount++;
+  }
 }
 
 /**

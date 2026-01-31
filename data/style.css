@@ -159,3 +159,45 @@ a, button {
   color: #F5F5F5;
   border: 1px solid #4b5563;
 }
+
+/* Power graph styling */
+#powerChart {
+  border-radius: 12px;
+}
+
+/* Success button styling for start logging */
+.btn-success {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.btn-success:disabled {
+  background-color: #6b7280;
+  border-color: #6b7280;
+  opacity: 0.5;
+}
+
+/* Warning button styling for stop logging */
+.btn-warning {
+  background-color: #f59e0b;
+  border-color: #f59e0b;
+  color: #111827;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background-color: #d97706;
+  border-color: #d97706;
+}
+
+.btn-warning:disabled {
+  background-color: #6b7280;
+  border-color: #6b7280;
+  opacity: 0.5;
+}
+
