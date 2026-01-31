@@ -72,7 +72,7 @@ float    reportPower       = 0.0f;     ///< Current power consumption in watts
 float    reportWs          = 0.0f;     ///< Watt-seconds energy measurement
 float    reportTemperature = 0.0f;     ///< Device temperature in Celsius
 String   reportBootId      = "";       ///< Unique boot ID from relay device
-float    reportEnergyBoot  = 0.0f;     ///< Energy consumed since boot
+float    reportEnergyBoot  = 0.0f;     ///< Energy consumed since boot [Ws]
 uint32_t reportTimeBoot    = 0;        ///< Time since boot in seconds
 
 uint32_t lastReportPollMs  = 0;        ///< Timestamp of last status poll
@@ -98,7 +98,7 @@ size_t powerLogCount = 0;
 size_t powerLogIndex = 0;  // Circular buffer index
 bool loggingEnabled = false;
 uint32_t loggingStartMs = 0;
-float energyStartWh = 0.0f;  // Energy at start of logging
+float energyStartWs = 0.0f;  // Energy at start of logging [Ws]
 uint32_t lastLogMs = 0;
 constexpr uint32_t LOG_INTERVAL_MS = 10000;  ///< Log every 10 seconds
 
@@ -308,7 +308,7 @@ void startLogging() {
   
   loggingEnabled = true;
   loggingStartMs = millis();
-  energyStartWh = reportEnergyBoot;  // Use current energy as baseline
+  energyStartWs = reportEnergyBoot;  // Use current energy as baseline [Ws]
   powerLogCount = 0;
   powerLogIndex = 0;
   lastLogMs = 0;
@@ -351,7 +351,8 @@ void logPowerData() {
   PowerLogEntry& entry = powerLog[powerLogIndex];
   entry.timestamp = now - loggingStartMs;  // Relative to logging start
   entry.power = reportPower;
-  entry.energy = reportEnergyBoot - energyStartWh;  // Cumulative energy since logging started
+  float energyWs = reportEnergyBoot - energyStartWs;  // Energy in Ws since logging started
+  entry.energy = energyWs / 3600.0f;  // Convert Ws to Wh
   
   // Calculate cost: energy in Wh converted to kWh, multiplied by current tariff
   float currentTariff = getCurrentTariff();

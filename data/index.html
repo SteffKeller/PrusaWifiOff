@@ -192,12 +192,27 @@
 
     <div class='glass-card mt-3'>
       <div class='px-4 pt-3 pb-3'>
-        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseTariff'>
-          <div class='fw-semibold'><i class='bi bi-currency-exchange'></i> Energy Tariff Settings</div>
+        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseSettings'>
+          <div class='fw-semibold'><i class='bi bi-gear-fill'></i> Settings & Configuration</div>
           <i class='bi bi-chevron-down'></i>
         </div>
-        <div class='collapse' id='collapseTariff'>
-          <div class='mt-3'>
+        <div class='collapse' id='collapseSettings'>
+          
+          <!-- Relay IP Address Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-router-fill'></i> Relay IP Address</div>
+            <div class='input-group input-group-sm'>
+              <input id='relayIpInput' type='text' class='form-control' placeholder='192.168.188.44' value='' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              <button id='btnSaveIp' class='btn btn-outline-light btn-sm' type='button' style='border-radius:0 999px 999px 0;'>
+                <i class='bi bi-check-lg'></i> Save
+              </button>
+            </div>
+            <div class='small text-muted mt-1'>Configure target relay device IP</div>
+          </div>
+
+          <!-- Energy Tariff Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-currency-exchange'></i> Energy Tariff Settings</div>
             <div class='mb-2'>
               <label class='status-label small'>High Tariff (per kWh)</label>
               <input id='tariffHigh' type='number' step='0.01' class='form-control form-control-sm' placeholder='0.30' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
@@ -225,38 +240,10 @@
             </button>
             <div class='small text-muted mt-2'>Low tariff period: e.g., 22:00 to 6:00 for overnight rates</div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <div class='glass-card mt-3'>
-      <div class='px-4 pt-3 pb-3'>
-        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseRelayIp'>
-          <div class='fw-semibold'>Relay IP Address</div>
-          <i class='bi bi-chevron-down'></i>
-        </div>
-        <div class='collapse' id='collapseRelayIp'>
-          <div class='mt-3'>
-            <div class='input-group input-group-sm'>
-              <input id='relayIpInput' type='text' class='form-control' placeholder='192.168.188.44' value='' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
-              <button id='btnSaveIp' class='btn btn-outline-light btn-sm' type='button' style='border-radius:0 999px 999px 0;'>
-                <i class='bi bi-check-lg'></i> Save
-              </button>
-            </div>
-            <div class='small text-muted mt-1'>Configure target relay device IP</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class='glass-card mt-3'>
-      <div class='px-4 pt-3 pb-3'>
-        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseAuth'>
-          <div class='fw-semibold'><i class='bi bi-shield-lock'></i> Security Settings</div>
-          <i class='bi bi-chevron-down'></i>
-        </div>
-        <div class='collapse' id='collapseAuth'>
-          <div class='mt-3'>
+          <!-- Security Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-shield-lock'></i> Security Settings</div>
             <div class='mb-2'>
               <label class='status-label small'>Username</label>
               <input id='authUsername' type='text' class='form-control form-control-sm' placeholder='admin' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
@@ -270,21 +257,16 @@
             </button>
             <div class='small text-muted mt-2'>Changes take effect immediately. Username min 3 chars, password min 4 chars.</div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <div class='glass-card mt-3'>
-      <div class='px-4 pt-3 pb-3'>
-        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseWifi'>
-          <div class='fw-semibold'>WiFi Configuration</div>
-          <i class='bi bi-chevron-down'></i>
-        </div>
-        <div class='collapse' id='collapseWifi'>
-          <div class='small text-muted mt-3 mb-2'>Hold button for 3 seconds or click below to reset WiFi and reconfigure</div>
-          <button id='btnResetWifi' class='btn btn-pill btn-sm btn-outline-danger w-100 btn-icon' type='button'>
-            <i class='bi bi-wifi-off'></i> Reset WiFi Settings
-          </button>
+          <!-- WiFi Configuration Section -->
+          <div class='mt-3'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-wifi'></i> WiFi Configuration</div>
+            <div class='small text-muted mb-2'>Hold button for 3 seconds or click below to reset WiFi and reconfigure</div>
+            <button id='btnResetWifi' class='btn btn-pill btn-sm btn-outline-danger w-100 btn-icon' type='button'>
+              <i class='bi bi-wifi-off'></i> Reset WiFi Settings
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
