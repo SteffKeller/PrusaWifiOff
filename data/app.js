@@ -200,6 +200,11 @@ class UIController {
   }
 
   setupEventListeners() {
+    console.log('[UI] Setting up event listeners...');
+    console.log('[UI] btnStartLog found:', !!this.elements.btnStartLog);
+    console.log('[UI] btnStopLog found:', !!this.elements.btnStopLog);
+    console.log('[UI] btnClearLog found:', !!this.elements.btnClearLog);
+    
     if (this.elements.btnMode) {
       this.elements.btnMode.addEventListener('click', () => this.api.call('/api/mode'));
     }
@@ -233,15 +238,30 @@ class UIController {
     }
     
     if (this.elements.btnStartLog) {
-      this.elements.btnStartLog.addEventListener('click', () => this.startLogging());
+      this.elements.btnStartLog.addEventListener('click', () => {
+        console.log('[UI] Start logging button clicked');
+        this.startLogging();
+      });
+    } else {
+      console.warn('[UI] btnStartLog element not found!');
     }
     
     if (this.elements.btnStopLog) {
-      this.elements.btnStopLog.addEventListener('click', () => this.stopLogging());
+      this.elements.btnStopLog.addEventListener('click', () => {
+        console.log('[UI] Stop logging button clicked');
+        this.stopLogging();
+      });
+    } else {
+      console.warn('[UI] btnStopLog element not found!');
     }
     
     if (this.elements.btnClearLog) {
-      this.elements.btnClearLog.addEventListener('click', () => this.clearLog());
+      this.elements.btnClearLog.addEventListener('click', () => {
+        console.log('[UI] Clear log button clicked');
+        this.clearLog();
+      });
+    } else {
+      console.warn('[UI] btnClearLog element not found!');
     }
     
     if (this.elements.btnSaveAutoLog) {
@@ -412,28 +432,43 @@ class UIController {
   }
 
   renderLogging(state) {
-    if (!this.elements.logStatusBadge) return;
+    console.log('[UI] renderLogging called with state:', state.loggingEnabled, state.logCount);
     
-    if (state.loggingEnabled) {
-      this.elements.logStatusBadge.textContent = 'Recording';
-      this.elements.logStatusBadge.className = 'chip bg-danger text-light';
-      this.elements.btnStartLog.disabled = true;
-      this.elements.btnStopLog.disabled = false;
-      this.elements.logStats.style.display = 'block';
-      
-      this.elements.logCount.textContent = `${state.logCount} / ${state.logMaxCount}`;
-      const minutes = Math.floor(state.logDuration / 60000);
-      this.elements.logDuration.textContent = `${minutes}m`;
-    } else {
-      const hasData = state.logCount > 0;
-      this.elements.logStatusBadge.textContent = hasData ? 'Stopped' : 'Idle';
-      this.elements.logStatusBadge.className = hasData ? 'chip bg-warning text-dark' : 'chip bg-secondary text-light';
-      this.elements.btnStartLog.disabled = false;
-      this.elements.btnStopLog.disabled = true;
-      
-      if (hasData) {
+    // Update button states
+    if (this.elements.btnStartLog && this.elements.btnStopLog) {
+      if (state.loggingEnabled) {
+        this.elements.btnStartLog.disabled = true;
+        this.elements.btnStopLog.disabled = false;
+      } else {
+        this.elements.btnStartLog.disabled = false;
+        this.elements.btnStopLog.disabled = true;
+      }
+      console.log('[UI] Button states updated - Start disabled:', this.elements.btnStartLog.disabled, 'Stop disabled:', this.elements.btnStopLog.disabled);
+    }
+    
+    // Update status badge
+    if (this.elements.logStatusBadge) {
+      if (state.loggingEnabled) {
+        this.elements.logStatusBadge.textContent = 'Recording';
+        this.elements.logStatusBadge.className = 'chip bg-danger text-light';
+      } else {
+        const hasData = state.logCount > 0;
+        this.elements.logStatusBadge.textContent = hasData ? 'Stopped' : 'Idle';
+        this.elements.logStatusBadge.className = hasData ? 'chip bg-warning text-dark' : 'chip bg-secondary text-light';
+      }
+    }
+    
+    // Update log stats
+    if (this.elements.logStats) {
+      if (state.loggingEnabled || state.logCount > 0) {
         this.elements.logStats.style.display = 'block';
-        this.elements.logCount.textContent = `${state.logCount} / ${state.logMaxCount}`;
+        if (this.elements.logCount) {
+          this.elements.logCount.textContent = `${state.logCount} / ${state.logMaxCount}`;
+        }
+        if (this.elements.logDuration && state.loggingEnabled) {
+          const minutes = Math.floor(state.logDuration / 60000);
+          this.elements.logDuration.textContent = `${minutes}m`;
+        }
       } else {
         this.elements.logStats.style.display = 'none';
       }
