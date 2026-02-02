@@ -21,7 +21,6 @@ class ApiService {
   }
 
   async request(path, options = {}) {
-    console.log('[API] Request:', path);
     let lastError;
     
     for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
@@ -40,7 +39,6 @@ class ApiService {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        console.log('[API] Success:', path, response.status);
         return response;
       } catch (error) {
         lastError = error;
@@ -57,10 +55,8 @@ class ApiService {
   }
 
   async call(path) {
-    console.log('[API] Fire-and-forget call:', path);
     try {
       await this.request(path);
-      console.log('[API] Call completed:', path);
     } catch (error) {
       console.error('[API] Call failed:', path, error);
     }
@@ -109,17 +105,13 @@ class AppState {
   }
 
   update(updates) {
-    console.log('[State] Update:', updates);
     const hasChanges = Object.keys(updates).some(
       key => this.state[key] !== updates[key]
     );
     
     if (hasChanges) {
       this.state = { ...this.state, ...updates };
-      console.log('[State] New state:', this.state);
       this.notify();
-    } else {
-      console.log('[State] No changes detected');
     }
   }
 
@@ -144,15 +136,12 @@ class AppState {
 
 class UIController {
   constructor(api, state) {
-    console.log('[UI] Initializing UIController');
     this.api = api;
     this.state = state;
     this.elements = this.cacheElements();
-    console.log('[UI] Cached', Object.keys(this.elements).filter(k => this.elements[k]).length, 'elements');
     this.setupEventListeners();
-    console.log('[UI] Event listeners setup complete');
     this.subscribeToState();
-    console.log('[UI] UIController initialized');
+    console.log('[UI] Controller initialized');
   }
 
   cacheElements() {
@@ -204,34 +193,20 @@ class UIController {
   }
 
   setupEventListeners() {
-    console.log('[UI] Setting up event listeners...');
-    
     if (this.elements.btnMode) {
-      this.elements.btnMode.addEventListener('click', () => {
-        console.log('[UI] Mode button clicked');
-        this.api.call('/api/mode');
-      });
+      this.elements.btnMode.addEventListener('click', () => this.api.call('/api/mode'));
     }
     
     if (this.elements.btnOffNow) {
-      this.elements.btnOffNow.addEventListener('click', () => {
-        console.log('[UI] Off Now button clicked');
-        this.api.call('/api/off_now');
-      });
+      this.elements.btnOffNow.addEventListener('click', () => this.api.call('/api/off_now'));
     }
     
     if (this.elements.btnOnNow) {
-      this.elements.btnOnNow.addEventListener('click', () => {
-        console.log('[UI] On Now button clicked');
-        this.api.call('/api/on_now');
-      });
+      this.elements.btnOnNow.addEventListener('click', () => this.api.call('/api/on_now'));
     }
     
     if (this.elements.btnToggle) {
-      this.elements.btnToggle.addEventListener('click', () => {
-        console.log('[UI] Toggle button clicked');
-        this.api.call('/api/toggle');
-      });
+      this.elements.btnToggle.addEventListener('click', () => this.api.call('/api/toggle'));
     }
     
     if (this.elements.btnSaveIp) {
@@ -582,17 +557,12 @@ class StatusPoller {
   }
 
   start() {
-    console.log('[Poller] Starting status polling...');
-    if (this.isRunning) {
-      console.log('[Poller] Already running');
-      return;
-    }
+    if (this.isRunning) return;
     
     this.isRunning = true;
-    console.log('[Poller] Initial poll...');
     this.poll();
     this.timerId = setInterval(() => this.poll(), this.interval);
-    console.log('[Poller] Polling started with interval:', this.interval, 'ms');
+    console.log('[Poller] Status polling started');
   }
 
   stop() {
@@ -606,7 +576,6 @@ class StatusPoller {
   async poll() {
     try {
       const data = await this.api.getJson('/api/status');
-      console.log('[Poller] Status received:', data);
       
       this.state.update({
         autoMode: data.auto_mode,
@@ -941,31 +910,17 @@ class Application {
   }
 
   async init() {
-    console.log('='.repeat(50));
-    console.log('[App] Starting application initialization...');
-    console.log('='.repeat(50));
+    console.log('[App] Initializing...');
     
     try {
-      console.log('[App] Starting status poller...');
       this.statusPoller.start();
-      
-      console.log('[App] Initializing power graph...');
       this.powerGraph.init();
-      
-      console.log('[App] Starting log status manager...');
       this.logStatus.start();
-      
-      console.log('[App] Loading tariff settings...');
       await this.tariffManager.load();
       
-      console.log('='.repeat(50));
-      console.log('[App] ✓ Application initialized successfully');
-      console.log('='.repeat(50));
+      console.log('[App] ✓ Application ready');
     } catch (error) {
-      console.error('='.repeat(50));
-      console.error('[App] ✗ Application initialization failed:', error);
-      console.error('[App] Stack:', error.stack);
-      console.error('='.repeat(50));
+      console.error('[App] ✗ Initialization failed:', error);
     }
   }
 
@@ -983,25 +938,16 @@ class Application {
 let app;
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[Bootstrap] DOM Content Loaded');
-  console.log('[Bootstrap] Creating Application instance...');
-  
   try {
     app = new Application();
-    console.log('[Bootstrap] Application instance created');
     app.init();
   } catch (error) {
-    console.error('[Bootstrap] Failed to create application:', error);
-    console.error('[Bootstrap] Stack trace:', error.stack);
+    console.error('[Bootstrap] Failed:', error);
   }
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    console.log('[Visibility] Page hidden - polling continues in background');
-  } else {
-    console.log('[Visibility] Page visible - resuming normal operation');
-  }
+  // Polling continues in background
 });
 
 window.addEventListener('error', (event) => {
