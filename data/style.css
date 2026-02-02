@@ -1,142 +1,187 @@
 /**
  * @file style.css
- * @brief Custom styles for M5Stack Atom web interface
+ * @brief Modern styles for M5Stack Atom web interface
  * @author Steff8583
  * @date 02.01.2026
  * 
+ * Modern CSS features:
+ * - CSS Custom Properties (variables)
+ * - CSS Grid and Flexbox
+ * - Modern color functions
+ * - Smooth animations with GPU acceleration
+ * - Responsive design patterns
+ * 
  * Glass morphism dark theme with Prusa orange accent (#F96831).
- * Responsive design optimized for mobile and desktop viewing.
- * 
- * Color Palette:
- * - Background: Radial gradient from #111827 to black
- * - Glass cards: rgba(15, 23, 42, 0.9) with blur backdrop
- * - Primary accent: #F96831 (Prusa orange)
- * - Text: #e5e7eb (light gray)
- * - Labels: #9ca3af (muted gray)
- * 
- * Components:
- * - .glass-card: Frosted glass effect containers
- * - .chip: Pill-shaped status badges
- * - .btn-pill: Rounded button style
- * - .progress-bar: Animated countdown indicator
+ * Optimized for mobile and desktop viewing.
  */
 
-/* Base layout and typography */
+/* ========================================
+   CSS Custom Properties (Variables)
+   ======================================== */
+:root {
+  /* Color Palette */
+  --color-primary: #F96831;
+  --color-primary-rgb: 249, 104, 49;
+  --color-bg-dark: #020617;
+  --color-bg-darker: #000;
+  --color-bg-card: rgba(15, 23, 42, 0.9);
+  --color-text-light: #e5e7eb;
+  --color-text-muted: #9ca3af;
+  --color-text-dimmed: #6b7280;
+  --color-border: rgba(148, 163, 184, 0.35);
+  --color-border-soft: rgba(148, 163, 184, 0.6);
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-pill: 999px;
+  
+  /* Shadows */
+  --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.65);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  
+  /* Typography */
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* ========================================
+   Base Styles & Typography
+   ======================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
-  background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
-  color: #e5e7eb;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 0;
+  background: radial-gradient(circle at top, #111827 0%, var(--color-bg-dark) 55%, var(--color-bg-darker) 100%);
+  color: var(--color-text-light);
+  font-family: var(--font-family);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Container layout */
+/* ========================================
+   Layout Components
+   ======================================== */
 .card-shell {
   max-width: 520px;
-  margin: 32px auto;
-  padding: 0 12px;
+  margin: var(--spacing-xl) auto;
+  padding: 0 var(--spacing-md);
 }
 
-/* Glass morphism card effect */
+/* Glass Morphism Card */
 .glass-card {
-  background: rgba(15, 23, 42, 0.9);
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
   backdrop-filter: blur(16px);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-/* Header with Prusa orange gradient */
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+}
+
+/* Header with Gradient */
 .card-header-gradient {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
-  background: linear-gradient(120deg, #F96831, #F96831, #F5F5F5);
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(120deg, var(--color-primary), var(--color-primary), #F5F5F5);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-/* UI Components - Chips and buttons */
+/* ========================================
+   UI Components
+   ======================================== */
+
+/* Chips & Badges */
 .chip {
-  border-radius: 999px;
-  padding: 4px 10px;
+  display: inline-block;
+  border-radius: var(--radius-pill);
+  padding: var(--spacing-xs) 0.625rem;
   font-size: 0.78rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
+.chip-auto-on {
+  background-color: var(--color-primary);
+  color: #111827;
+  box-shadow: 0 0 12px rgba(var(--color-primary-rgb), 0.4);
+}
+
+.chip-auto-off {
+  background-color: #111827;
+  color: #F5F5F5;
+  border: 1px solid #4b5563;
+}
+
+.badge-soft {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-base);
+}
+
+.badge-soft:hover {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+/* Buttons */
 .btn-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 500;
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-pill::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width var(--transition-slow), height var(--transition-slow);
+}
+
+.btn-pill:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 .btn-icon i {
   margin-right: 6px;
+  transition: transform var(--transition-fast);
 }
 
-/* Status display elements */
-.status-label {
-  font-size: 0.8rem;
-  color: #9ca3af;
+.btn-pill:hover .btn-icon i {
+  transform: scale(1.1);
 }
 
-.status-value {
-  font-weight: 600;
-}
-
-/* Timer countdown progress bar */
-.progress {
-  background: rgba(15, 23, 42, 0.9);
-  border-radius: 999px;
-}
-
-.progress-bar {
-  border-radius: 999px;
-  background-color: #F96831;
-}
-
-.badge-soft {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-}
-
-a, button {
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.list-group-item {
-  border-color: rgba(55, 65, 81, 0.7);
-}
-
-/* Button color overrides with Prusa orange */
-.btn-outline-info {
-  color: #F96831;
-  border-color: #F96831;
-}
-
-.btn-outline-info:hover {
-  background-color: #F96831;
-  color: #000;
-  border-color: #F96831;
-}
-
-.btn-outline-danger {
-  color: #F96831;
-  border-color: #F96831;
-}
-
-.btn-outline-danger:hover {
-  background-color: #F96831;
-  color: #000;
-  border-color: #F96831;
-}
-
-.btn-outline-success {
-  color: #F96831;
-  border-color: #F96831;
-}
-
-.btn-outline-success:hover {
-  background-color: #F96831;
-  color: #000;
-  border-color: #F96831;
-}
-
+/* Button Color Variants */
 .btn-outline-light {
   color: #F5F5F5;
   border-color: #F5F5F5;
@@ -146,26 +191,23 @@ a, button {
   background-color: #F5F5F5;
   color: #111827;
   border-color: #F5F5F5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 245, 245, 0.2);
 }
 
-/* Auto-off mode state indicators */
-.chip-auto-on {
-  background-color: #F96831;
-  color: #111827;
+.btn-outline-danger {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
-.chip-auto-off {
-  background-color: #111827;
-  color: #F5F5F5;
-  border: 1px solid #4b5563;
+.btn-outline-danger:hover {
+  background-color: var(--color-primary);
+  color: #000;
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
 }
 
-/* Power graph styling */
-#powerChart {
-  border-radius: 12px;
-}
-
-/* Success button styling for start logging */
 .btn-success {
   background-color: #10b981;
   border-color: #10b981;
@@ -175,15 +217,16 @@ a, button {
 .btn-success:hover:not(:disabled) {
   background-color: #059669;
   border-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .btn-success:disabled {
-  background-color: #6b7280;
-  border-color: #6b7280;
+  background-color: var(--color-text-dimmed);
+  border-color: var(--color-text-dimmed);
   opacity: 0.5;
 }
 
-/* Warning button styling for stop logging */
 .btn-warning {
   background-color: #f59e0b;
   border-color: #f59e0b;
@@ -193,11 +236,208 @@ a, button {
 .btn-warning:hover:not(:disabled) {
   background-color: #d97706;
   border-color: #d97706;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 .btn-warning:disabled {
-  background-color: #6b7280;
-  border-color: #6b7280;
+  background-color: var(--color-text-dimmed);
+  border-color: var(--color-text-dimmed);
   opacity: 0.5;
 }
 
+/* ========================================
+   Status Display
+   ======================================== */
+.status-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.status-value {
+  font-weight: 600;
+  color: var(--color-text-light);
+}
+
+/* ========================================
+   Progress Bar
+   ======================================== */
+.progress {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progress-bar {
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--color-primary), #ff7849);
+  transition: width var(--transition-base);
+  box-shadow: 0 0 12px rgba(var(--color-primary-rgb), 0.5);
+}
+
+/* ========================================
+   Form Controls
+   ======================================== */
+.form-range {
+  height: 8px;
+  background: linear-gradient(
+    to right,
+    var(--color-primary) 0%,
+    var(--color-primary) var(--value, 0%),
+    rgba(148, 163, 184, 0.2) var(--value, 0%),
+    rgba(148, 163, 184, 0.2) 100%
+  );
+  border-radius: var(--radius-pill);
+}
+
+.form-range::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--color-primary);
+  border: 3px solid var(--color-bg-dark);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.5);
+  transition: all var(--transition-fast);
+}
+
+.form-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(var(--color-primary-rgb), 0.7);
+}
+
+/* ========================================
+   Lists
+   ======================================== */
+.list-group-item {
+  border-color: rgba(55, 65, 81, 0.7);
+  transition: background-color var(--transition-fast);
+}
+
+.list-group-item:hover {
+  background-color: rgba(55, 65, 81, 0.2) !important;
+}
+
+/* ========================================
+   Utilities
+   ======================================== */
+a, button {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: #ff7849;
+  text-decoration: underline;
+}
+
+/* ========================================
+   Chart Styling
+   ======================================== */
+#powerChart {
+  border-radius: var(--radius-md);
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.glass-card {
+  animation: fadeIn var(--transition-slow) ease-out;
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 576px) {
+  :root {
+    --spacing-xl: 1rem;
+  }
+  
+  .card-shell {
+    margin: var(--spacing-md) auto;
+  }
+  
+  .status-label {
+    font-size: 0.7rem;
+  }
+  
+  .chip {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+  }
+}
+
+/* ========================================
+   Dark Mode Optimizations
+   ======================================== */
+@media (prefers-color-scheme: dark) {
+  /* Already dark by default */
+}
+
+/* ========================================
+   Accessibility
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .glass-card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  button {
+    display: none;
+  }

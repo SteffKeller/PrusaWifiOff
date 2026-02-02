@@ -26,7 +26,7 @@
 
 WiFiManager wifiManager; ///< WiFiManager for captive portal configuration
 
-constexpr int INPUT_PIN = 32; ///< GPIO pin for external signal monitoring (printer status)
+constexpr int INPUT_PIN = 33; ///< GPIO pin for external signal monitoring (printer status)
 
 String relayIpAddress = "192.168.188.44"; ///< Configurable relay device IP address (stored in NVS)
 

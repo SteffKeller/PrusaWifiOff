@@ -4,7 +4,21 @@
  * @author Steff8583
  * @date 02.01.2026
  * 
- * Modern architecture with ES6+ and debugging support
+ * Modern architecture with:
+ * - ES6+ syntax and classes
+ * - State management pattern
+ * - Reactive UI updates
+ * - Error handling with retry logic
+ * 
+ * API Endpoints:
+ * - GET /api/status - Fetch current state (polled every 500ms)
+ * - GET /api/mode - Toggle auto power-off mode
+ * - GET /api/off_now - Power off relay immediately
+ * - GET /api/on_now - Power on relay
+ * - GET /api/toggle - Toggle relay state
+ * - GET /api/set_timer?minutes=X - Set timer duration
+ * - GET /api/set_relay_ip?ip=X - Configure relay IP address
+ * - GET /api/reset_wifi - Reset WiFi settings and restart
  */
 
 'use strict';
@@ -20,12 +34,19 @@ class ApiService {
     this.retryDelay = 1000;
   }
 
+  /**
+   * Send API request with retry logic
+   * @param {string} path - API endpoint path
+   * @param {object} options - Fetch options
+   * @returns {Promise<Response>}
+   */
   async request(path, options = {}) {
     console.log('[API] Request:', path);
     let lastError;
     
     for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
       try {
+        // Create abort controller for timeout (better browser compatibility)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
@@ -56,6 +77,10 @@ class ApiService {
     throw lastError;
   }
 
+  /**
+   * Send fire-and-forget API call
+   * @param {string} path - API endpoint path
+   */
   async call(path) {
     console.log('[API] Fire-and-forget call:', path);
     try {
@@ -66,6 +91,11 @@ class ApiService {
     }
   }
 
+  /**
+   * Fetch JSON data from API
+   * @param {string} path - API endpoint path
+   * @returns {Promise<object>}
+   */
   async getJson(path) {
     const response = await this.request(path);
     return response.json();
@@ -103,11 +133,20 @@ class AppState {
     this.listeners = new Set();
   }
 
+  /**
+   * Subscribe to state changes
+   * @param {Function} callback - Called when state changes
+   * @returns {Function} Unsubscribe function
+   */
   subscribe(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
   }
 
+  /**
+   * Update state and notify listeners
+   * @param {object} updates - Partial state updates
+   */
   update(updates) {
     console.log('[State] Update:', updates);
     const hasChanges = Object.keys(updates).some(
@@ -123,16 +162,23 @@ class AppState {
     }
   }
 
+  /**
+   * Notify all listeners of state change
+   */
   notify() {
     this.listeners.forEach(callback => {
       try {
         callback(this.state);
       } catch (error) {
-        console.error('[State] Listener error:', error);
+        console.error('State listener error:', error);
       }
     });
   }
 
+  /**
+   * Get current state snapshot
+   * @returns {object}
+   */
   getState() {
     return { ...this.state };
   }
@@ -140,44 +186,55 @@ class AppState {
 
 // ============================================================================
 // UI Controller - Manages all DOM interactions
-// ============================================================================
-
-class UIController {
-  constructor(api, state) {
-    console.log('[UI] Initializing UIController');
+// =console.log('[UI] Initializing UIController');
     this.api = api;
     this.state = state;
     this.elements = this.cacheElements();
-    console.log('[UI] Cached', Object.keys(this.elements).filter(k => this.elements[k]).length, 'elements');
+    console.log('[UI] Cached elements:', Object.keys(this.elements).filter(k => this.elements[k]).length);
     this.setupEventListeners();
     console.log('[UI] Event listeners setup complete');
     this.subscribeToState();
     console.log('[UI] UIController initialized');
   }
 
+  /**
+   * Cache all DOM elements for performance
+   * @returns {object} Cached DOM elements
+   */
   cacheElements() {
     return {
+      // Status badges
       modeBadge: document.getElementById('modeBadge'),
       timerBadge: document.getElementById('timerBadge'),
       relayStateBadge: document.getElementById('relayStateBadge'),
       relayBadge: document.getElementById('relayBadge'),
       logStatusBadge: document.getElementById('logStatusBadge'),
+      
+      // Time display
       timeRemaining: document.getElementById('timeRemaining'),
       timerProgress: document.getElementById('timerProgress'),
+      
+      // Relay info
       valPower: document.getElementById('valPower'),
       valWs: document.getElementById('valWs'),
       valTemp: document.getElementById('valTemp'),
       valEnergy: document.getElementById('valEnergy'),
       valTimeBoot: document.getElementById('valTimeBoot'),
       valReportState: document.getElementById('valReportState'),
+      
+      // Configuration
       relayIpInput: document.getElementById('relayIpInput'),
       relayIpDisplay: document.getElementById('relayIpDisplay'),
       deviceIp: document.getElementById('deviceIp'),
       wifiSSID: document.getElementById('wifiSSID'),
       relayWarning: document.getElementById('relayWarning'),
       relayWarningIp: document.getElementById('relayWarningIp'),
+      
+      // Timer slider
       timerSlider: document.getElementById('timerSlider'),
       timerSliderValue: document.getElementById('timerSliderValue'),
+      
+      // Buttons
       btnMode: document.getElementById('btnMode'),
       btnOffNow: document.getElementById('btnOffNow'),
       btnOnNow: document.getElementById('btnOnNow'),
@@ -189,13 +246,19 @@ class UIController {
       btnStartLog: document.getElementById('btnStartLog'),
       btnStopLog: document.getElementById('btnStopLog'),
       btnClearLog: document.getElementById('btnClearLog'),
+      
+      // Tariff inputs
       tariffHigh: document.getElementById('tariffHigh'),
       tariffLow: document.getElementById('tariffLow'),
       tariffCurrency: document.getElementById('tariffCurrency'),
       tariffStartHour: document.getElementById('tariffStartHour'),
       tariffEndHour: document.getElementById('tariffEndHour'),
+      
+      // Auth inputs
       authUsername: document.getElementById('authUsername'),
       authPassword: document.getElementById('authPassword'),
+      
+      // Log stats
       logStats: document.getElementById('logStats'),
       logCount: document.getElementById('logCount'),
       logDuration: document.getElementById('logDuration'),
@@ -203,65 +266,62 @@ class UIController {
     };
   }
 
+  /**
+   * Setup all event listeners
+   */
   setupEventListeners() {
-    console.log('[UI] Setting up event listeners...');
-    
+    // Control buttons
     if (this.elements.btnMode) {
       this.elements.btnMode.addEventListener('click', () => {
-        console.log('[UI] Mode button clicked');
+        console.log('Mode button clicked');
         this.api.call('/api/mode');
       });
     }
-    
     if (this.elements.btnOffNow) {
       this.elements.btnOffNow.addEventListener('click', () => {
-        console.log('[UI] Off Now button clicked');
+        console.log('Off button clicked');
         this.api.call('/api/off_now');
       });
     }
-    
     if (this.elements.btnOnNow) {
       this.elements.btnOnNow.addEventListener('click', () => {
-        console.log('[UI] On Now button clicked');
+        console.log('On button clicked');
         this.api.call('/api/on_now');
       });
     }
-    
     if (this.elements.btnToggle) {
       this.elements.btnToggle.addEventListener('click', () => {
-        console.log('[UI] Toggle button clicked');
+        console.log('Toggle button clicked');
         this.api.call('/api/toggle');
       });
     }
     
+    // Configuration buttons
     if (this.elements.btnSaveIp) {
       this.elements.btnSaveIp.addEventListener('click', () => this.saveRelayIp());
     }
-    
     if (this.elements.btnResetWifi) {
       this.elements.btnResetWifi.addEventListener('click', () => this.resetWifi());
     }
-    
     if (this.elements.btnSaveAuth) {
       this.elements.btnSaveAuth.addEventListener('click', () => this.saveAuth());
     }
-    
     if (this.elements.btnSaveTariff) {
       this.elements.btnSaveTariff.addEventListener('click', () => this.saveTariff());
     }
     
+    // Logging buttons
     if (this.elements.btnStartLog) {
       this.elements.btnStartLog.addEventListener('click', () => this.startLogging());
     }
-    
     if (this.elements.btnStopLog) {
       this.elements.btnStopLog.addEventListener('click', () => this.stopLogging());
     }
-    
     if (this.elements.btnClearLog) {
       this.elements.btnClearLog.addEventListener('click', () => this.clearLog());
     }
     
+    // Timer slider
     if (this.elements.timerSlider) {
       this.elements.timerSlider.addEventListener('input', (e) => {
         this.elements.timerSliderValue.textContent = e.target.value;
@@ -272,23 +332,38 @@ class UIController {
       });
     }
     
+    // Collapse animations
     this.setupCollapseAnimations();
   }
 
+  /**
+   * Subscribe to state changes and update UI
+   */
   subscribeToState() {
     this.state.subscribe((state) => this.render(state));
   }
 
+  /**
+   * Render UI based on current state
+   * @param {object} state - Current application state
+   */
   render(state) {
-    this.renderAutoMode(state);
-    this.renderTimer(state);
-    this.renderRelay(state);
-    this.renderRelayReport(state);
-    this.renderNetworkInfo(state);
-    this.renderWarnings(state);
-    this.renderLogging(state);
+    try {
+      this.renderAutoMode(state);
+      this.renderTimer(state);
+      this.renderRelay(state);
+      this.renderRelayReport(state);
+      this.renderNetworkInfo(state);
+      this.renderWarnings(state);
+      this.renderLogging(state);
+    } catch (error) {
+      console.error('Render error:', error);
+    }
   }
 
+  /**
+   * Render auto mode status
+   */
   renderAutoMode(state) {
     if (!this.elements.modeBadge) return;
     
@@ -298,14 +373,19 @@ class UIController {
     }`;
   }
 
+  /**
+   * Render timer status and progress
+   */
   renderTimer(state) {
     if (!this.elements.timerBadge) return;
     
+    // Timer badge
     this.elements.timerBadge.textContent = state.timerRunning ? 'RUNNING' : 'STOPPED';
     this.elements.timerBadge.className = `status-value chip ${
       state.timerRunning ? 'bg-warning text-dark' : 'bg-secondary'
     }`;
     
+    // Remaining time and progress
     let timeText = '-';
     let progressPct = 0;
     
@@ -325,12 +405,16 @@ class UIController {
       this.elements.timerProgress.style.width = `${progressPct}%`;
     }
     
+    // Sync slider
     if (this.elements.timerSlider && state.timerMinutes > 0) {
       this.elements.timerSlider.value = state.timerMinutes;
       this.elements.timerSliderValue.textContent = state.timerMinutes;
     }
   }
 
+  /**
+   * Render relay state
+   */
   renderRelay(state) {
     const isOn = state.reportValid ? state.relayState : null;
     const text = isOn === null ? '?' : (isOn ? 'ON' : 'OFF');
@@ -347,6 +431,9 @@ class UIController {
     }
   }
 
+  /**
+   * Render relay report data
+   */
   renderRelayReport(state) {
     if (state.reportValid) {
       this.elements.valPower && (this.elements.valPower.textContent = `${state.power.toFixed(2)} W`);
@@ -373,6 +460,9 @@ class UIController {
     }
   }
 
+  /**
+   * Render network information
+   */
   renderNetworkInfo(state) {
     if (state.deviceIp && this.elements.deviceIp) {
       this.elements.deviceIp.textContent = state.deviceIp;
@@ -383,6 +473,7 @@ class UIController {
     }
     
     if (state.relayIp) {
+      // Update input only if not focused (don't interrupt typing)
       if (this.elements.relayIpInput && document.activeElement !== this.elements.relayIpInput) {
         this.elements.relayIpInput.value = state.relayIp;
       }
@@ -397,12 +488,16 @@ class UIController {
     }
   }
 
+  /**
+   * Render warning messages
+   */
   renderWarnings(state) {
     if (!this.elements.relayWarning) return;
     
     if (!state.reportValid && state.relayIp) {
       this.elements.relayWarning.style.display = 'block';
       
+      // Highlight IP input
       if (this.elements.relayIpInput) {
         this.elements.relayIpInput.style.borderColor = 'rgba(249,104,49,0.8)';
         this.elements.relayIpInput.style.boxShadow = '0 0 0 0.25rem rgba(249,104,49,0.25)';
@@ -410,6 +505,7 @@ class UIController {
     } else {
       this.elements.relayWarning.style.display = 'none';
       
+      // Remove highlight
       if (this.elements.relayIpInput) {
         this.elements.relayIpInput.style.borderColor = '';
         this.elements.relayIpInput.style.boxShadow = '';
@@ -417,6 +513,9 @@ class UIController {
     }
   }
 
+  /**
+   * Render logging status
+   */
   renderLogging(state) {
     if (!this.elements.logStatusBadge) return;
     
@@ -446,6 +545,9 @@ class UIController {
     }
   }
 
+  /**
+   * Save relay IP address
+   */
   async saveRelayIp() {
     const ip = this.elements.relayIpInput.value.trim();
     if (!ip) {
@@ -461,6 +563,9 @@ class UIController {
     }
   }
 
+  /**
+   * Reset WiFi settings
+   */
   async resetWifi() {
     if (!confirm('This will reset WiFi settings and restart the device. You will need to reconnect to the "M5Stack-AutoOff" access point to reconfigure. Continue?')) {
       return;
@@ -474,6 +579,9 @@ class UIController {
     }
   }
 
+  /**
+   * Save authentication credentials
+   */
   async saveAuth() {
     const user = this.elements.authUsername.value.trim();
     const pass = this.elements.authPassword.value.trim();
@@ -498,7 +606,7 @@ class UIController {
     }
     
     try {
-      await this.api.request(`/api/set_auth?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
+      const response = await this.api.request(`/api/set_auth?user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
       alert('Credentials updated successfully! Please re-authenticate when prompted.');
       this.elements.authPassword.value = '';
     } catch (error) {
@@ -506,6 +614,9 @@ class UIController {
     }
   }
 
+  /**
+   * Save tariff settings
+   */
   async saveTariff() {
     const high = this.elements.tariffHigh.value;
     const low = this.elements.tariffLow.value;
@@ -532,14 +643,23 @@ class UIController {
     }
   }
 
+  /**
+   * Start data logging
+   */
   async startLogging() {
     await this.api.call('/api/log_start');
   }
 
+  /**
+   * Stop data logging
+   */
   async stopLogging() {
     await this.api.call('/api/log_stop');
   }
 
+  /**
+   * Clear logged data
+   */
   async clearLog() {
     if (!confirm('Clear all logged data? This cannot be undone.')) return;
     
@@ -547,6 +667,9 @@ class UIController {
     this.elements.logTotalEnergy.textContent = '0 Wh';
   }
 
+  /**
+   * Setup collapse animations for settings sections
+   */
   setupCollapseAnimations() {
     const collapseElements = document.querySelectorAll('.collapse');
     
@@ -569,7 +692,7 @@ class UIController {
 }
 
 // ============================================================================
-// Status Poller
+// Status Poller - Periodically fetches device status
 // ============================================================================
 
 class StatusPoller {
@@ -577,10 +700,19 @@ class StatusPoller {
     this.api = api;
     this.state = state;
     this.interval = interval;
-    this.timerId = null;
-    this.isRunning = false;
-  }
-
+    console.log('[Poller] Starting status polling...');
+    if (this.isRunning) {
+      console.log('[Poller] Already running');
+      return;
+    }
+    
+    this.isRunning = true;
+    console.log('[Poller] Initial poll...');
+    this.poll(); // Initial poll
+    this.timerId = setInterval(() => this.poll(), this.interval);
+    console.log('[Poller] Polling started with interval:', this.interval, 'ms'
+   * Start polling
+   */
   start() {
     console.log('[Poller] Starting status polling...');
     if (this.isRunning) {
@@ -590,21 +722,14 @@ class StatusPoller {
     
     this.isRunning = true;
     console.log('[Poller] Initial poll...');
-    this.poll();
+    this.poll(); // Initial poll
     this.timerId = setInterval(() => this.poll(), this.interval);
     console.log('[Poller] Polling started with interval:', this.interval, 'ms');
   }
 
-  stop() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
-      this.timerId = null;
-    }
-    this.isRunning = false;
-  }
-
-  async poll() {
-    try {
+  /**
+   * Stop polling
+   */ole.log('[Poller] Fetching status...');
       const data = await this.api.getJson('/api/status');
       console.log('[Poller] Status received:', data);
       
@@ -626,13 +751,27 @@ class StatusPoller {
         wifiSsid: data.wifi_ssid || ''
       });
     } catch (error) {
-      console.error('[Poller] Status poll error:', error);
+      console.error('[Poller] .total_ms,
+        timerMinutes: data.timer_minutes,
+        relayState: data.relay,
+        reportValid: data.report_valid,
+        power: data.power || 0,
+        ws: data.ws || 0,
+        temperature: data.temperature || 0,
+        energyBoot: data.energy_boot || 0,
+        timeBoot: data.time_boot || 0,
+        relayIp: data.relay_ip || '',
+        deviceIp: data.device_ip || '',
+        wifiSsid: data.wifi_ssid || ''
+      });
+    } catch (error) {
+      console.error('Status poll error:', error);
     }
   }
 }
 
 // ============================================================================
-// Power Graph
+// Power Graph - Chart.js visualization
 // ============================================================================
 
 class PowerGraph {
@@ -644,21 +783,24 @@ class PowerGraph {
     this.timerId = null;
   }
 
+  /**
+   * Initialize Chart.js graph
+   */
   init() {
     const ctx = document.getElementById('powerChart');
     if (!ctx) {
-      console.warn('[Graph] powerChart element not found');
+      console.warn('Chart canvas not found');
       return;
     }
-
+    
+    // Check if Chart.js is loaded
     if (typeof Chart === 'undefined') {
-      console.error('[Graph] Chart.js not loaded');
+      console.error('Chart.js not loaded');
       return;
     }
 
-    console.log('[Graph] Initializing Chart.js');
-
-    this.chart = new Chart(ctx, {
+    try {
+      this.chart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: [],
@@ -776,10 +918,17 @@ class PowerGraph {
       }
     });
 
-    console.log('[Graph] Chart initialized');
+    // Start auto-update when logging
     this.startAutoUpdate();
+    console.log('PowerGraph initialized successfully');
+  } catch (error) {
+    console.error('PowerGraph init error:', error);
   }
+}
 
+  /**
+   * Update graph with data from API
+   */
   async update() {
     if (!this.chart) return;
 
@@ -790,12 +939,15 @@ class PowerGraph {
       this.chart.data.datasets[0].data = data.power;
       this.chart.data.datasets[1].data = data.energy;
       this.chart.data.datasets[2].data = data.cost;
-      this.chart.update('none');
+      this.chart.update('none'); // No animation for smoother updates
     } catch (error) {
-      console.error('[Graph] Update error:', error);
+      console.error('Graph update error:', error);
     }
   }
 
+  /**
+   * Clear all graph data
+   */
   clear() {
     if (!this.chart) return;
     
@@ -806,6 +958,9 @@ class PowerGraph {
     this.chart.update();
   }
 
+  /**
+   * Start automatic graph updates
+   */
   startAutoUpdate() {
     if (this.timerId) return;
     
@@ -818,6 +973,9 @@ class PowerGraph {
     }, this.updateInterval);
   }
 
+  /**
+   * Stop automatic updates
+   */
   stopAutoUpdate() {
     if (this.timerId) {
       clearInterval(this.timerId);
@@ -825,6 +983,9 @@ class PowerGraph {
     }
   }
 
+  /**
+   * Update total energy display
+   */
   async updateTotalEnergy() {
     const energyEl = document.getElementById('logTotalEnergy');
     if (!energyEl || !this.chart) return;
@@ -850,7 +1011,7 @@ class PowerGraph {
 }
 
 // ============================================================================
-// Log Status Manager
+// Log Status Manager - Handles logging state
 // ============================================================================
 
 class LogStatusManager {
@@ -861,13 +1022,19 @@ class LogStatusManager {
     this.timerId = null;
   }
 
+  /**
+   * Start periodic status updates
+   */
   start() {
     if (this.timerId) return;
     
-    this.update();
+    this.update(); // Initial update
     this.timerId = setInterval(() => this.update(), this.updateInterval);
   }
 
+  /**
+   * Stop periodic updates
+   */
   stop() {
     if (this.timerId) {
       clearInterval(this.timerId);
@@ -875,6 +1042,9 @@ class LogStatusManager {
     }
   }
 
+  /**
+   * Fetch and update logging status
+   */
   async update() {
     try {
       const status = await this.api.getJson('/api/log_status');
@@ -886,13 +1056,13 @@ class LogStatusManager {
         logDuration: status.duration_ms
       });
     } catch (error) {
-      console.error('[LogStatus] Update error:', error);
+      console.error('Log status error:', error);
     }
   }
 }
 
 // ============================================================================
-// Tariff Manager
+// Tariff Manager - Handles energy tariff settings
 // ============================================================================
 
 class TariffManager {
@@ -900,6 +1070,9 @@ class TariffManager {
     this.api = api;
   }
 
+  /**
+   * Load tariff settings from device
+   */
   async load() {
     try {
       const data = await this.api.getJson('/api/tariff_get');
@@ -918,15 +1091,15 @@ class TariffManager {
       if (elements.tariffStartHour) elements.tariffStartHour.value = data.start_hour;
       if (elements.tariffEndHour) elements.tariffEndHour.value = data.end_hour;
       
-      console.log('[Tariff] Settings loaded');
+      console.log('Tariff settings loaded:', data);
     } catch (error) {
-      console.error('[Tariff] Failed to load settings:', error);
+      console.error('Failed to load tariff settings:', error);
     }
   }
 }
 
 // ============================================================================
-// Application
+// Application - Main application controller
 // ============================================================================
 
 class Application {
@@ -940,35 +1113,39 @@ class Application {
     this.tariffManager = new TariffManager(this.api);
   }
 
+  /**
+   * Initialize and start application
+   */
   async init() {
-    console.log('='.repeat(50));
-    console.log('[App] Starting application initialization...');
-    console.log('='.repeat(50));
-    
     try {
-      console.log('[App] Starting status poller...');
+      console.log('Initializing application...');
+      
+      // Start status polling
       this.statusPoller.start();
+      console.log('Status poller started');
       
-      console.log('[App] Initializing power graph...');
+      // Initialize power graph
       this.powerGraph.init();
+      console.log('Power graph initialized');
       
-      console.log('[App] Starting log status manager...');
+      // Start log status updates
       this.logStatus.start();
+      console.log('Log status manager started');
       
-      console.log('[App] Loading tariff settings...');
+      // Load tariff settings
       await this.tariffManager.load();
+      console.log('Tariff settings loaded');
       
-      console.log('='.repeat(50));
-      console.log('[App] ✓ Application initialized successfully');
-      console.log('='.repeat(50));
+      console.log('Application initialized successfully');
     } catch (error) {
-      console.error('='.repeat(50));
-      console.error('[App] ✗ Application initialization failed:', error);
-      console.error('[App] Stack:', error.stack);
-      console.error('='.repeat(50));
+      console.error('Application initialization failed:', error);
+      alert('Failed to initialize application. Please refresh the page.');
     }
   }
 
+  /**
+   * Cleanup and stop application
+   */
   destroy() {
     this.statusPoller.stop();
     this.powerGraph.stopAutoUpdate();
@@ -977,40 +1154,21 @@ class Application {
 }
 
 // ============================================================================
-// Bootstrap
+// Application Bootstrap
 // ============================================================================
 
 let app;
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[Bootstrap] DOM Content Loaded');
-  console.log('[Bootstrap] Creating Application instance...');
-  
-  try {
-    app = new Application();
-    console.log('[Bootstrap] Application instance created');
-    app.init();
-  } catch (error) {
-    console.error('[Bootstrap] Failed to create application:', error);
-    console.error('[Bootstrap] Stack trace:', error.stack);
-  }
+  app = new Application();
+  app.init();
 });
 
+// Handle page visibility for battery saving
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    console.log('[Visibility] Page hidden - polling continues in background');
+    console.log('Page hidden - polling continues in background');
   } else {
-    console.log('[Visibility] Page visible - resuming normal operation');
+    console.log('Page visible - resuming normal operation');
   }
-});
 
-window.addEventListener('error', (event) => {
-  console.error('[Global Error]', event.error);
-  console.error('[Global Error] Message:', event.message);
-  console.error('[Global Error] Stack:', event.error?.stack);
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('[Unhandled Rejection]', event.reason);
-  console.error('[Unhandled Rejection] Promise:', event.promise);
-});
