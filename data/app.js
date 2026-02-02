@@ -182,6 +182,9 @@ class UIController {
       autoLogEnabled: document.getElementById('autoLogEnabled'),
       autoLogThreshold: document.getElementById('autoLogThreshold'),
       autoLogDebounce: document.getElementById('autoLogDebounce'),
+      btnSaveLogInterval: document.getElementById('btnSaveLogInterval'),
+      logInterval: document.getElementById('logInterval'),
+      logDurationInfo: document.getElementById('logDurationInfo'),
       tariffHigh: document.getElementById('tariffHigh'),
       tariffLow: document.getElementById('tariffLow'),
       tariffCurrency: document.getElementById('tariffCurrency'),
@@ -243,6 +246,14 @@ class UIController {
     
     if (this.elements.btnSaveAutoLog) {
       this.elements.btnSaveAutoLog.addEventListener('click', () => this.saveAutoLog());
+    }
+    
+    if (this.elements.btnSaveLogInterval) {
+      this.elements.btnSaveLogInterval.addEventListener('click', () => this.saveLogInterval());
+    }
+    
+    if (this.elements.logInterval) {
+      this.elements.logInterval.addEventListener('input', () => this.updateLogDurationInfo());
     }
     
     if (this.elements.timerSlider) {
@@ -562,6 +573,66 @@ class UIController {
     } catch (error) {
       console.error('[UI] Failed to load auto-logging settings:', error);
     }
+  }
+
+  async saveLogInterval() {
+    const interval = this.elements.logInterval.value;
+    
+    if (!interval) {
+      alert('Please enter a log interval');
+      return;
+    }
+    
+    if (parseInt(interval) < 5 || parseInt(interval) > 300) {
+      alert('Interval must be between 5 and 300 seconds');
+      return;
+    }
+    
+    try {
+      await this.api.call(`/api/loginterval_set?interval=${encodeURIComponent(interval)}`);
+      console.log('[UI] Log interval saved');
+      alert('Log interval saved successfully!');
+      await this.loadLogInterval();
+    } catch (error) {
+      console.error('[UI] Failed to save log interval:', error);
+      alert('Failed to save log interval: ' + error.message);
+    }
+  }
+
+  async loadLogInterval() {
+    try {
+      const data = await this.api.getJson('/api/loginterval_get');
+      if (data.interval !== undefined) {
+        this.elements.logInterval.value = data.interval;
+        this.updateLogDurationInfo(data.interval, data.maxMinutes);
+      }
+      console.log('[UI] Log interval loaded:', data);
+    } catch (error) {
+      console.error('[UI] Failed to load log interval:', error);
+    }
+  }
+
+  updateLogDurationInfo(interval, maxMinutes) {
+    if (!this.elements.logDurationInfo) return;
+    
+    // If called from input event, calculate from input value
+    if (!interval) {
+      interval = parseInt(this.elements.logInterval.value) || 10;
+      maxMinutes = Math.floor((500 * interval) / 60);
+    }
+    
+    const hours = Math.floor(maxMinutes / 60);
+    const minutes = maxMinutes % 60;
+    
+    let durationText = 'Maximum log duration: ';
+    if (hours > 0) {
+      durationText += `${hours}h ${minutes}m`;
+    } else {
+      durationText += `${minutes} minutes`;
+    }
+    durationText += ` (500 data points × ${interval}s interval)`;
+    
+    this.elements.logDurationInfo.textContent = durationText;
   }
 
   async startLogging() {
@@ -986,6 +1057,115 @@ class TariffManager {
 }
 
 // ============================================================================
+// File Manager
+// ============================================================================
+
+class FileManager {
+  constructor(api) {
+    this.api = api;
+    this.files = [];
+    this.setupEventListeners();
+  }
+
+  setupEventListeners() {
+    const btnRefresh = document.getElementById('btnRefreshFiles');
+    const btnSave = document.getElementById('btnSaveCurrentLog');
+    
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', () => this.loadFiles());
+    }
+    
+    if (btnSave) {
+      btnSave.addEventListener('click', () => this.saveCurrentLog());
+    }
+  }
+
+  async loadFiles() {
+    try {
+      this.files = await this.api.getJson('/api/files/list');
+      this.renderFiles();
+    } catch (error) {
+      console.error('[FileManager] Failed to load files:', error);
+      this.renderError();
+    }
+  }
+
+  renderFiles() {
+    const container = document.getElementById('fileList');
+    if (!container) return;
+
+    if (this.files.length === 0) {
+      container.innerHTML = '<div class="text-muted text-center py-3"><i class="bi bi-inbox"></i> No saved logs</div>';
+      return;
+    }
+
+    let html = '<div class="list-group list-group-flush">';
+    
+    this.files.forEach(file => {
+      const sizeKB = (file.size / 1024).toFixed(1);
+      const filename = file.name.replace('/log_', '').replace('.csv', '');
+      
+      html += `
+        <div class="list-group-item d-flex justify-content-between align-items-center" 
+             style="background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);margin-bottom:0.5rem;border-radius:0.5rem;">
+          <div style="flex:1;">
+            <div class="fw-semibold" style="font-size:0.9rem;">
+              <i class="bi bi-file-earmark-text"></i> ${filename}
+            </div>
+            <div class="text-muted" style="font-size:0.75rem;">${sizeKB} KB</div>
+          </div>
+          <div>
+            <button class="btn btn-sm btn-outline-light btn-icon me-1" 
+                    onclick="window.app.fileManager.downloadFile('${file.name}')" 
+                    title="Download">
+              <i class="bi bi-download"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger btn-icon" 
+                    onclick="window.app.fileManager.deleteFile('${file.name}')" 
+                    title="Delete">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  renderError() {
+    const container = document.getElementById('fileList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-danger text-center py-3"><i class="bi bi-exclamation-triangle"></i> Error loading files</div>';
+  }
+
+  async downloadFile(filename) {
+    window.location.href = `/api/files/download?file=${encodeURIComponent(filename)}`;
+  }
+
+  async deleteFile(filename) {
+    if (!confirm(`Delete ${filename}?`)) return;
+    
+    try {
+      await this.api.call(`/api/files/delete?file=${encodeURIComponent(filename)}`);
+      await this.loadFiles();
+    } catch (error) {
+      alert('Failed to delete file: ' + error.message);
+    }
+  }
+
+  async saveCurrentLog() {
+    try {
+      const result = await this.api.getJson('/api/files/save');
+      alert(`Log saved: ${result.filename}`);
+      await this.loadFiles();
+    } catch (error) {
+      alert('Failed to save log: ' + error.message);
+    }
+  }
+}
+
+// ============================================================================
 // Application
 // ============================================================================
 
@@ -998,6 +1178,7 @@ class Application {
     this.powerGraph = new PowerGraph(this.api, this.state);
     this.logStatus = new LogStatusManager(this.api, this.state);
     this.tariffManager = new TariffManager(this.api);
+    this.fileManager = new FileManager(this.api);
   }
 
   async init() {
@@ -1009,6 +1190,8 @@ class Application {
       this.logStatus.start();
       await this.tariffManager.load();
       await this.ui.loadAutoLog();
+      await this.ui.loadLogInterval();
+      await this.fileManager.loadFiles();
       
       console.log('[App] ✓ Application ready');
     } catch (error) {

@@ -63,6 +63,9 @@ extern uint32_t autoLogDebounce;
 extern uint32_t autoLogAboveMs;
 extern uint32_t autoLogBelowMs;
 
+// Log settings externals
+extern uint32_t logIntervalSeconds;
+
 // Authentication credentials (stored in NVS)
 String authUsername = "admin";
 String authPassword = "prusa";
@@ -76,6 +79,8 @@ void startLogging();
 void stopLogging();
 void clearLog();
 void saveTariffSettings();
+String saveLogToFile();
+bool deleteLogFile(const String& filename);
 
 /**
  * @brief Check HTTP Basic Authentication
@@ -494,6 +499,130 @@ void startWebServer()
           server.send(200, "text/plain", "autolog settings saved");
         } else {
           server.send(400, "text/plain", "no parameters provided");
+        } });
+
+    // Log interval settings endpoints
+    server.on("/api/loginterval_get", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        String json = "{";
+        json += "\"interval\":" + String(logIntervalSeconds) + ",";
+        json += "\"maxEntries\":" + String(MAX_LOG_ENTRIES) + ",";
+        json += "\"maxMinutes\":" + String((MAX_LOG_ENTRIES * logIntervalSeconds) / 60);
+        json += "}";
+        server.send(200, "application/json", json); });
+
+    server.on("/api/loginterval_set", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        if (!server.hasArg("interval")) {
+          server.send(400, "text/plain", "missing interval parameter");
+          return;
+        }
+        
+        uint32_t newInterval = server.arg("interval").toInt();
+        if (newInterval < 5) newInterval = 5;
+        if (newInterval > 300) newInterval = 300;
+        
+        logIntervalSeconds = newInterval;
+        
+        Preferences prefs;
+        prefs.begin("coreone", false);
+        prefs.putUInt("log_interval", logIntervalSeconds);
+        prefs.end();
+        
+        Serial.printf("Log interval saved: %us (max duration: ~%u minutes)\n",
+                     logIntervalSeconds, (MAX_LOG_ENTRIES * logIntervalSeconds) / 60);
+        
+        server.send(200, "text/plain", "log interval saved"); });
+
+    // File management endpoints
+    server.on("/api/files/list", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        String json = "[";
+        File root = SPIFFS.open("/");
+        File file = root.openNextFile();
+        bool first = true;
+        
+        while (file) {
+          if (!file.isDirectory()) {
+            String filename = String(file.name());
+            if (filename.startsWith("/log_") && filename.endsWith(".csv")) {
+              if (!first) json += ",";
+              json += "{";
+              json += "\"name\":\"" + filename + "\",";
+              json += "\"size\":" + String(file.size());
+              json += "}";
+              first = false;
+            }
+          }
+          file = root.openNextFile();
+        }
+        json += "]";
+        
+        server.send(200, "application/json", json); });
+
+    server.on("/api/files/download", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        if (!server.hasArg("file")) {
+          server.send(400, "text/plain", "missing file parameter");
+          return;
+        }
+        
+        String filename = server.arg("file");
+        if (!filename.startsWith("/")) {
+          filename = "/" + filename;
+        }
+        
+        if (!SPIFFS.exists(filename)) {
+          server.send(404, "text/plain", "file not found");
+          return;
+        }
+        
+        File file = SPIFFS.open(filename, FILE_READ);
+        if (!file) {
+          server.send(500, "text/plain", "failed to open file");
+          return;
+        }
+        
+        server.streamFile(file, "text/csv");
+        file.close(); });
+
+    server.on("/api/files/delete", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        if (!server.hasArg("file")) {
+          server.send(400, "text/plain", "missing file parameter");
+          return;
+        }
+        
+        String filename = server.arg("file");
+        if (!filename.startsWith("/")) {
+          filename = "/" + filename;
+        }
+        
+        if (deleteLogFile(filename)) {
+          server.send(200, "text/plain", "file deleted");
+        } else {
+          server.send(500, "text/plain", "failed to delete file");
+        } });
+
+    server.on("/api/files/save", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        String filename = saveLogToFile();
+        if (filename.length() > 0) {
+          String json = "{\"filename\":\"" + filename + "\"}";
+          server.send(200, "application/json", json);
+        } else {
+          server.send(400, "text/plain", "no data to save");
         } });
 
     server.begin();

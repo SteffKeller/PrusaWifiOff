@@ -100,7 +100,7 @@ bool loggingEnabled = false;
 uint32_t loggingStartMs = 0;
 float energyStartWs = 0.0f;  // Energy at start of logging [Ws]
 uint32_t lastLogMs = 0;
-constexpr uint32_t LOG_INTERVAL_MS = 10000;  ///< Log every 10 seconds
+uint32_t logIntervalSeconds = 10;  ///< Log interval in seconds (configurable, stored in NVS)
 
 // Tariff settings (stored in NVS)
 float tariffHigh = 0.30f;      ///< High tariff price per kWh (default 0.30 EUR)
@@ -131,6 +131,8 @@ void logPowerData();
 float getCurrentTariff();
 void loadTariffSettings();
 void saveTariffSettings();
+String saveLogToFile();
+bool deleteLogFile(const String& filename);
 
 /**
  * @brief Get current tariff rate based on time of day
@@ -174,12 +176,15 @@ void loadTariffSettings() {
   autoLogEnabled = prefs.getBool("autolog_en", false);
   autoLogThreshold = prefs.getFloat("autolog_th", 5.0f);
   autoLogDebounce = prefs.getUInt("autolog_db", 30);
+  logIntervalSeconds = prefs.getUInt("log_interval", 10);
   prefs.end();
   
   Serial.printf("Loaded tariffs: High=%.4f, Low=%.4f %s, Period=%02d:00-%02d:00\n", 
                 tariffHigh, tariffLow, currency.c_str(), tariffSwitchHour, tariffSwitchEndHour);
   Serial.printf("Auto-logging: %s, Threshold=%.1fW, Debounce=%us\n",
                 autoLogEnabled ? "ON" : "OFF", autoLogThreshold, autoLogDebounce);
+  Serial.printf("Log interval: %us (max duration: ~%u minutes)\n",
+                logIntervalSeconds, (MAX_LOG_ENTRIES * logIntervalSeconds) / 60);
 }
 
 /**
@@ -336,7 +341,14 @@ void stopLogging() {
   if (!loggingEnabled) return;
   
   loggingEnabled = false;
-  Serial.println("Power logging STOPPED");
+  
+  // Auto-save log to SPIFFS
+  String filename = saveLogToFile();
+  if (filename.length() > 0) {
+    Serial.printf("Power logging STOPPED - Saved to %s\n", filename.c_str());
+  } else {
+    Serial.println("Power logging STOPPED - No data to save");
+  }
 }
 
 /**
@@ -392,13 +404,80 @@ void clearLog() {
 }
 
 /**
+ * @brief Save current log to SPIFFS as CSV file
+ * @return Filename of saved log, or empty string on error
+ */
+String saveLogToFile() {
+  if (powerLogCount == 0) {
+    Serial.println("No data to save");
+    return "";
+  }
+
+  // Generate filename with timestamp
+  time_t now;
+  time(&now);
+  struct tm timeinfo;
+  localtime_r(&now, &timeinfo);
+  char filename[64];
+  snprintf(filename, sizeof(filename), "/log_%04d%02d%02d_%02d%02d%02d.csv",
+           timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
+           timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
+  File file = SPIFFS.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.printf("Failed to create file: %s\n", filename);
+    return "";
+  }
+
+  // Write CSV header
+  file.println("Time(s),Power(W),Energy(Wh),Cost");
+
+  // Write data points
+  size_t startIdx = (powerLogCount < MAX_LOG_ENTRIES) ? 0 : powerLogIndex;
+  for (size_t i = 0; i < powerLogCount; i++) {
+    size_t idx = (startIdx + i) % MAX_LOG_ENTRIES;
+    PowerLogEntry& entry = powerLog[idx];
+    file.printf("%u,%.2f,%.4f,%.6f\n",
+                entry.timestamp / 1000,  // Convert ms to seconds
+                entry.power,
+                entry.energy,
+                entry.cost);
+  }
+
+  file.close();
+  Serial.printf("Log saved to %s (%u entries)\n", filename, powerLogCount);
+  return String(filename);
+}
+
+/**
+ * @brief Delete a log file from SPIFFS
+ * @param filename Name of file to delete (with leading /)
+ * @return true if deleted successfully
+ */
+bool deleteLogFile(const String& filename) {
+  if (!SPIFFS.exists(filename)) {
+    Serial.printf("File does not exist: %s\n", filename.c_str());
+    return false;
+  }
+  
+  if (SPIFFS.remove(filename)) {
+    Serial.printf("Deleted: %s\n", filename.c_str());
+    return true;
+  }
+  
+  Serial.printf("Failed to delete: %s\n", filename.c_str());
+  return false;
+}
+
+/**
  * @brief Log current power data to circular buffer
  */
 void logPowerData() {
   if (!loggingEnabled || !reportValid) return;
   
   uint32_t now = millis();
-  if (now - lastLogMs < LOG_INTERVAL_MS) return;  // Throttle logging
+  uint32_t intervalMs = logIntervalSeconds * 1000;
+  if (now - lastLogMs < intervalMs) return;  // Throttle logging
   
   lastLogMs = now;
   
