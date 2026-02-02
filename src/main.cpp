@@ -115,6 +115,7 @@ float autoLogThreshold = 5.0f; ///< Power threshold in watts (default 5W)
 uint32_t autoLogDebounce = 30; ///< Debounce time in seconds (default 30s)
 uint32_t autoLogAboveMs = 0;   ///< Timestamp when power first exceeded threshold
 uint32_t autoLogBelowMs = 0;   ///< Timestamp when power first dropped below threshold
+bool manualStopOverride = false; ///< User manually stopped logging, prevent auto-restart
 
 // Forward declarations
 void ensureWifi();
@@ -332,6 +333,7 @@ void startLogging() {
   powerLogCount = 0;
   powerLogIndex = 0;
   lastLogMs = 0;
+  manualStopOverride = false;  // Clear override when manually starting
   
   Serial.println("Power logging STARTED");
 }
@@ -343,13 +345,14 @@ void stopLogging() {
   if (!loggingEnabled) return;
   
   loggingEnabled = false;
+  manualStopOverride = true;  // Set override to prevent auto-restart
   
   // Auto-save log to SPIFFS
   String filename = saveLogToFile();
   if (filename.length() > 0) {
-    Serial.printf("Power logging STOPPED - Saved to %s\n", filename.c_str());
+    Serial.printf("Power logging STOPPED (manual) - Saved to %s\n", filename.c_str());
   } else {
-    Serial.println("Power logging STOPPED - No data to save");
+    Serial.println("Power logging STOPPED (manual) - No data to save");
   }
 }
 
@@ -368,8 +371,9 @@ void checkAutoLogging() {
     
     if (autoLogAboveMs == 0) {
       autoLogAboveMs = now;  // Start counting
-    } else if (!loggingEnabled && (now - autoLogAboveMs >= debounceMs)) {
+    } else if (!loggingEnabled && !manualStopOverride && (now - autoLogAboveMs >= debounceMs)) {
       // Power has been above threshold for debounce time - start logging
+      // But only if user hasn't manually stopped it
       Serial.printf("Auto-logging START: Power %.1fW > %.1fW for %us\n", 
                     reportPower, autoLogThreshold, autoLogDebounce);
       startLogging();
@@ -378,6 +382,7 @@ void checkAutoLogging() {
   } else {
     // Power is below or at threshold
     autoLogAboveMs = 0;  // Reset above counter
+    manualStopOverride = false;  // Clear manual override when power drops
     
     if (loggingEnabled) {
       // We're logging, check if we should stop
@@ -387,7 +392,14 @@ void checkAutoLogging() {
         // Power has been below threshold for debounce time - stop logging
         Serial.printf("Auto-logging STOP: Power %.1fW <= %.1fW for %us\n",
                       reportPower, autoLogThreshold, autoLogDebounce);
-        stopLogging();
+        loggingEnabled = false;  // Stop directly without setting override
+        
+        // Auto-save log to SPIFFS
+        String filename = saveLogToFile();
+        if (filename.length() > 0) {
+          Serial.printf("Auto-save to %s\n", filename.c_str());
+        }
+        
         autoLogBelowMs = 0;  // Reset for next cycle
       }
     }
