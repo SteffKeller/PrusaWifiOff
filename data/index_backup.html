@@ -1,0 +1,357 @@
+<!--
+  @file index.html
+  @brief Main web interface for M5Stack Atom relay controller
+  @author Steff8583
+  @date 02.01.2026
+  
+  Web UI for controlling auto power-off functionality with live status updates.
+  Features:
+  - Real-time status monitoring (auto-mode, timer, relay state)
+  - Manual relay control (ON/OFF/Toggle)
+  - Configurable timer delay (1-240 minutes)
+  - Relay IP address configuration
+  - WiFi network management and reset
+  - Visual feedback with progress bar during countdown
+  
+  Design: Glass morphism dark theme with Prusa orange (#F96831) accent
+  Updates: AJAX polling every 500ms to /api/status endpoint
+  Dependencies: Bootstrap 5.3.3, Bootstrap Icons 1.11.3
+-->
+<!doctype html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Core One Auto Power Off</title>
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css' rel='stylesheet'>
+  <link href='/style.css' rel='stylesheet'>
+  <script src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'></script>
+</head>
+<body>
+  <div class='card-shell'>
+    <div class='glass-card'>
+      <div class='card-header-gradient text-white px-4 py-3 d-flex align-items-center justify-content-between'>
+        <div>
+          <div class='fw-semibold'>Core One Auto Power Off</div>
+          <div class='small text-white-50'>Local M5Stack control & timer</div>
+        </div>
+        <div class='text-end'>
+          <div class='status-label'>Device IP</div>
+          <div class='status-value small' id='deviceIp'>-</div>
+          <div class='status-label mt-1'>WiFi Network</div>
+          <div class='status-value small' id='wifiSSID'>-</div>
+        </div>
+      </div>
+
+      <!-- Relay Connection Warning -->
+      <div id='relayWarning' class='alert alert-warning mx-3 mt-3 mb-0' role='alert' style='display:none; background:rgba(249,104,49,0.15); border:1px solid rgba(249,104,49,0.4); color:#F96831;'>
+        <div class='d-flex align-items-start'>
+          <i class='bi bi-exclamation-triangle-fill me-2 mt-1'></i>
+          <div>
+            <strong>Relay Connection Failed</strong>
+            <div class='small mt-1'>Cannot connect to relay at <span id='relayWarningIp'>-</span>. Please verify the IP address below and update if needed.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class='px-4 pt-3 pb-4'>
+        <div class='row g-2 mb-3'>
+          <div class='col-4'>
+            <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>
+              <span class='status-label'>Auto power off</span>
+              <span id='modeBadge' class='status-value chip chip-auto-off mt-1'>?</span>
+            </div>
+          </div>
+          <div class='col-4'>
+            <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>
+              <span class='status-label'>Timer</span>
+              <span id='timerBadge' class='status-value chip bg-secondary text-light mt-1'>?</span>
+            </div>
+          </div>
+          <div class='col-4'>
+            <div class='badge-soft w-100 d-flex flex-column align-items-start px-3 py-2'>
+              <span class='status-label'>Relay state</span>
+              <span id='relayStateBadge' class='status-value chip bg-secondary text-light mt-1'>?</span>
+            </div>
+          </div>
+        </div>
+
+        <div class='d-flex justify-content-between align-items-center mb-1'>
+          <span class='status-label'>Remaining time</span>
+          <span id='timeRemaining' class='status-value small'>-</span>
+        </div>
+        <div class='progress mb-4' style='height:9px;'>
+          <div id='timerProgress' class='progress-bar' role='progressbar' style='width:0%;'></div>
+        </div>
+
+        <div class='d-grid gap-2 mb-2'>
+          <button id='btnMode' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-clock-history'></i> Toggle auto power off
+          </button>
+          <button id='btnOffNow' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-power'></i> Power OFF
+          </button>
+          <button id='btnOnNow' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-lightning-charge'></i> Power ON
+          </button>
+          <button id='btnToggle' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-arrow-repeat'></i> Power TOGGLE
+          </button>
+        </div>
+        <div class='text-center mt-2'>
+          <small class='text-muted'>Updated live from M5 via JSON / AJAX</small>
+        </div>
+      </div>
+    </div>
+
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='mb-3'>
+          <label class='status-label'>Auto-off Timer (min)</label>
+          <input id='timerSlider' type='range' class='form-range' min='1' max='240' value='10'>
+          <div class='small'><span id='timerSliderValue'>10</span> min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='d-flex justify-content-between align-items-center mb-2'>
+          <div>
+            <div class='fw-semibold'>Relay status</div>
+            <div class='status-label'>Reported from <span id='relayIpDisplay'>-</span></div>
+          </div>
+          <span id='relayBadge' class='chip bg-secondary text-light'>?</span>
+        </div>
+        <ul class='list-group list-group-flush small' style='background:transparent;border-radius:12px;'>
+          <li class='list-group-item bg-transparent text-light d-flex justify-content-between'>
+            <span>Power</span><span id='valPower'>-</span>
+          </li>
+          <li class='list-group-item bg-transparent text-light d-flex justify-content-between'>
+            <span>Ws</span><span id='valWs'>-</span>
+          </li>
+          <li class='list-group-item bg-transparent text-light d-flex justify-content-between'>
+            <span>Temperature</span><span id='valTemp'>-</span>
+          </li>
+          <li class='list-group-item bg-transparent text-light d-flex justify-content-between'>
+            <span>Energy since boot</span><span id='valEnergy'>-</span>
+          </li>
+          <li class='list-group-item bg-transparent text-light d-flex justify-content-between'>
+            <span>Time since boot</span><span id='valTimeBoot'>-</span>
+          </li>
+        </ul>
+        <div class='mt-2 text-end'>
+          <small id='valReportState' class='text-muted'>report: unknown</small>
+        </div>
+      </div>
+    </div>
+
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='d-flex justify-content-between align-items-center mb-3'>
+          <div>
+            <div class='fw-semibold'><i class='bi bi-graph-up'></i> Power & Energy Graph</div>
+            <div class='status-label'>Real-time monitoring for print sessions</div>
+          </div>
+          <span id='logStatusBadge' class='chip bg-secondary text-light'>Idle</span>
+        </div>
+
+        <div class='d-grid gap-2 mb-3'>
+          <button id='btnStartLog' class='btn btn-pill btn-sm btn-success btn-icon' type='button'>
+            <i class='bi bi-play-fill'></i> Start Logging
+          </button>
+          <button id='btnStopLog' class='btn btn-pill btn-sm btn-warning btn-icon' type='button' disabled>
+            <i class='bi bi-stop-fill'></i> Stop Logging
+          </button>
+          <button id='btnClearLog' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-trash3'></i> Clear Data
+          </button>
+        </div>
+
+        <div id='logStats' class='small text-muted mb-3' style='display:none;'>
+          <div class='d-flex justify-content-between'>
+            <span>Data points:</span>
+            <span id='logCount'>0</span>
+          </div>
+          <div class='d-flex justify-content-between'>
+            <span>Duration:</span>
+            <span id='logDuration'>0m</span>
+          </div>
+          <div class='d-flex justify-content-between'>
+            <span>Total Energy:</span>
+            <span id='logTotalEnergy'>0 Wh</span>
+          </div>
+        </div>
+
+        <div style='position:relative; height:300px;'>
+          <canvas id='powerChart'></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='d-flex justify-content-between align-items-center' style='cursor:pointer;' data-bs-toggle='collapse' data-bs-target='#collapseSettings'>
+          <div class='fw-semibold'><i class='bi bi-gear-fill'></i> Settings & Configuration</div>
+          <i class='bi bi-chevron-down'></i>
+        </div>
+        <div class='collapse' id='collapseSettings'>
+          
+          <!-- Relay IP Address Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-router-fill'></i> Relay IP Address</div>
+            <div class='input-group input-group-sm'>
+              <input id='relayIpInput' type='text' class='form-control' placeholder='192.168.188.44' value='' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              <button id='btnSaveIp' class='btn btn-outline-light btn-sm' type='button' style='border-radius:0 999px 999px 0;'>
+                <i class='bi bi-check-lg'></i> Save
+              </button>
+            </div>
+            <div class='small text-muted mt-1'>Configure target relay device IP</div>
+          </div>
+
+          <!-- Energy Tariff Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-currency-exchange'></i> Energy Tariff Settings</div>
+            <div class='mb-2'>
+              <label class='status-label small'>High Tariff (per kWh)</label>
+              <input id='tariffHigh' type='number' step='0.01' class='form-control form-control-sm' placeholder='0.30' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            </div>
+            <div class='mb-2'>
+              <label class='status-label small'>Low Tariff (per kWh)</label>
+              <input id='tariffLow' type='number' step='0.01' class='form-control form-control-sm' placeholder='0.20' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            </div>
+            <div class='mb-2'>
+              <label class='status-label small'>Currency</label>
+              <input id='tariffCurrency' type='text' maxlength='10' class='form-control form-control-sm' placeholder='EUR' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            </div>
+            <div class='row g-2 mb-3'>
+              <div class='col-6'>
+                <label class='status-label small'>Low tariff start (hour)</label>
+                <input id='tariffStartHour' type='number' min='0' max='23' class='form-control form-control-sm' placeholder='22' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              </div>
+              <div class='col-6'>
+                <label class='status-label small'>Low tariff end (hour)</label>
+                <input id='tariffEndHour' type='number' min='0' max='23' class='form-control form-control-sm' placeholder='6' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              </div>
+            </div>
+            <button id='btnSaveTariff' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+              <i class='bi bi-check-lg'></i> Save Tariff Settings
+            </button>
+            <div class='small text-muted mt-2'>Low tariff period: e.g., 22:00 to 6:00 for overnight rates</div>
+          </div>
+
+          <!-- Auto-Logging Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-lightning-charge-fill'></i> Auto-Logging Settings</div>
+            <div class='form-check form-switch mb-2'>
+              <input class='form-check-input' type='checkbox' id='autoLogEnabled'>
+              <label class='form-check-label small' for='autoLogEnabled'>
+                Enable automatic logging when power exceeds threshold
+              </label>
+            </div>
+            <div class='mb-2'>
+              <label class='status-label small'>Power Threshold (W)</label>
+              <input id='autoLogThreshold' type='number' step='1' min='1' max='500' class='form-control form-control-sm' placeholder='5' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              <div class='small text-muted mt-1'>Start logging when power exceeds this value</div>
+            </div>
+            <div class='mb-2'>
+              <label class='status-label small'>Debounce Time (seconds)</label>
+              <input id='autoLogDebounce' type='number' step='5' min='5' max='300' class='form-control form-control-sm' placeholder='30' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              <div class='small text-muted mt-1'>Wait time before auto-start/stop (avoids false triggers)</div>
+            </div>
+            <button id='btnSaveAutoLog' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+              <i class='bi bi-check-lg'></i> Save Auto-Log Settings
+            </button>
+          </div>
+
+          <!-- Log Interval Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-clock-history'></i> Log Interval Settings</div>
+            <div class='mb-2'>
+              <label class='status-label small'>Log Interval (seconds)</label>
+              <input id='logInterval' type='number' step='5' min='5' max='300' class='form-control form-control-sm' placeholder='10' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+              <div class='small text-muted mt-1'>Time between data points (5-300 seconds)</div>
+            </div>
+            <div class='alert alert-info small mb-2' style='background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;'>
+              <i class='bi bi-info-circle'></i> <span id='logDurationInfo'>Maximum log duration: calculating...</span>
+            </div>
+            <button id='btnSaveLogInterval' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+              <i class='bi bi-check-lg'></i> Save Log Interval
+            </button>
+          </div>
+
+          <!-- Security Settings Section -->
+          <div class='mt-3 pb-3' style='border-bottom:1px solid rgba(148,163,184,0.2);'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-shield-lock'></i> Security Settings</div>
+            <div class='mb-2'>
+              <label class='status-label small'>Username</label>
+              <input id='authUsername' type='text' class='form-control form-control-sm' placeholder='admin' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            </div>
+            <div class='mb-3'>
+              <label class='status-label small'>Password</label>
+              <input id='authPassword' type='password' class='form-control form-control-sm' placeholder='Enter new password' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            </div>
+            <button id='btnSaveAuth' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+              <i class='bi bi-shield-check'></i> Update Credentials
+            </button>
+            <div class='small text-muted mt-2'>Changes take effect immediately. Username min 3 chars, password min 4 chars.</div>
+          </div>
+
+          <!-- WiFi Configuration Section -->
+          <div class='mt-3'>
+            <div class='fw-semibold small mb-2'><i class='bi bi-wifi'></i> WiFi Configuration</div>
+            <div class='small text-muted mb-2'>Hold button for 3 seconds or click below to reset WiFi and reconfigure</div>
+            <button id='btnResetWifi' class='btn btn-pill btn-sm btn-outline-danger w-100 btn-icon' type='button'>
+              <i class='bi bi-wifi-off'></i> Reset WiFi Settings
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- File Manager Card -->
+    <div class='glass-card mt-3'>
+      <div class='px-4 pt-3 pb-3'>
+        <div class='d-flex justify-content-between align-items-center mb-3'>
+          <div class='fw-semibold'><i class='bi bi-folder2-open'></i> Log File Manager</div>
+          <button id='btnRefreshFiles' class='btn btn-pill btn-sm btn-outline-light btn-icon' type='button'>
+            <i class='bi bi-arrow-clockwise'></i> Refresh
+          </button>
+        </div>
+
+        <!-- Storage Status Bar -->
+        <div class='mb-3'>
+          <div class='d-flex justify-content-between small mb-1'>
+            <span class='text-muted'>SPIFFS Storage</span>
+            <span id='storageInfo' class='fw-semibold'>Loading...</span>
+          </div>
+          <div class='progress' style='height:8px;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.3);border-radius:4px;'>
+            <div id='storageBar' class='progress-bar' role='progressbar' style='width:0%;background:linear-gradient(90deg,#10B981,#F96831);border-radius:3px;'></div>
+          </div>
+          <div id='storageWarning' class='alert alert-warning small mt-2' style='display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;'>
+            <i class='bi bi-exclamation-triangle'></i> <span id='storageWarningText'></span>
+          </div>
+        </div>
+
+        <div id='fileList' class='small'>
+          <div class='text-muted text-center py-3'>
+            <i class='bi bi-hourglass-split'></i> Loading files...
+          </div>
+        </div>
+
+        <div class='mt-3'>
+          <button id='btnSaveCurrentLog' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+            <i class='bi bi-save'></i> Save Current Log Manually
+          </button>
+          <div class='small text-muted mt-2'>Logs are automatically saved when logging stops. Use this to save without stopping.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script>
+  <script src='/app.js'></script>
+</body>
+</html>

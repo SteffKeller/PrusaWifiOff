@@ -76,6 +76,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: #f8fafc !important;
+  font-weight: 600;
+}
+
+h6 {
+  font-size: 0.925rem;
+  letter-spacing: 0.02em;
+}
+
+/* Dynamic values (power, energy, etc.) */
+.fw-semibold {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+}
+
 /* ========================================
    Layout Components
    ======================================== */
@@ -379,6 +396,56 @@ a:hover {
 
 .glass-card {
   animation: fadeIn var(--transition-slow) ease-out;
+}
+
+/* ========================================
+   Tab Navigation
+   ======================================== */
+.nav-pills {
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0;
+}
+
+.nav-pills .nav-link {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--color-text-muted);
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  transition: all var(--transition-base);
+}
+
+.nav-pills .nav-link:hover {
+  color: var(--color-text-light);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.nav-pills .nav-link.active {
+  color: var(--color-text-light);
+  background: rgba(249, 104, 49, 0.15);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.nav-pills .nav-link i {
+  font-size: 1rem;
+  margin-right: 0.25rem;
+}
+
+/* Tab Content Animations */
+.tab-pane {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Dark Cards within Tabs */
+.card.bg-dark {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.card.bg-dark .card-body {
+  background: transparent;
 }
 
 /* ========================================
