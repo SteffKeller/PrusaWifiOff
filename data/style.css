@@ -26,7 +26,7 @@
   --color-bg-darker: #000;
   --color-bg-card: rgba(15, 23, 42, 0.9);
   --color-text-light: #e5e7eb;
-  --color-text-muted: #9ca3af;
+  --color-text-muted: #ccdaf0;
   --color-text-dimmed: #6b7280;
   --color-border: rgba(148, 163, 184, 0.35);
   --color-border-soft: rgba(148, 163, 184, 0.6);
@@ -255,6 +255,11 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 500;
+}
+
+/* Override Bootstrap's text-muted with our variable */
+.text-muted {
+  color: var(--color-text-muted) !important;
 }
 
 .status-value {

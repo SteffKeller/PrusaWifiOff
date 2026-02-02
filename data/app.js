@@ -1083,10 +1083,56 @@ class FileManager {
   async loadFiles() {
     try {
       this.files = await this.api.getJson('/api/files/list');
+      await this.loadStorageStatus();
       this.renderFiles();
     } catch (error) {
       console.error('[FileManager] Failed to load files:', error);
       this.renderError();
+    }
+  }
+
+  async loadStorageStatus() {
+    try {
+      const status = await this.api.getJson('/api/files/status');
+      this.renderStorageStatus(status);
+    } catch (error) {
+      console.error('[FileManager] Failed to load storage status:', error);
+    }
+  }
+
+  renderStorageStatus(status) {
+    const infoEl = document.getElementById('storageInfo');
+    const barEl = document.getElementById('storageBar');
+    const warningEl = document.getElementById('storageWarning');
+    const warningTextEl = document.getElementById('storageWarningText');
+    
+    if (!infoEl || !barEl) return;
+
+    const usedMB = (status.used / 1024 / 1024).toFixed(2);
+    const totalMB = (status.total / 1024 / 1024).toFixed(2);
+    const freeMB = (status.free / 1024 / 1024).toFixed(2);
+    
+    infoEl.textContent = `${usedMB} MB / ${totalMB} MB used (${freeMB} MB free)`;
+    barEl.style.width = `${status.usedPercent}%`;
+    
+    // Color coding
+    if (status.usedPercent >= 90) {
+      barEl.style.background = '#EF4444'; // Red
+      if (warningEl && warningTextEl) {
+        warningEl.style.display = 'block';
+        warningTextEl.textContent = 'Critical: Storage almost full! Old logs will be auto-deleted when saving new ones.';
+      }
+    } else if (status.usedPercent >= 75) {
+      barEl.style.background = 'linear-gradient(90deg,#F59E0B,#EF4444)'; // Orange to Red
+      if (warningEl && warningTextEl) {
+        warningEl.style.display = 'block';
+        warningTextEl.textContent = 'Warning: Storage running low. Consider deleting old logs.';
+      }
+    } else {
+      barEl.style.background = 'linear-gradient(90deg,#10B981,#F96831)'; // Green to Orange
+      if (warningEl) {
+        warningEl.style.display = 'none';
+      }
     }
   }
 

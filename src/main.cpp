@@ -133,6 +133,8 @@ void loadTariffSettings();
 void saveTariffSettings();
 String saveLogToFile();
 bool deleteLogFile(const String& filename);
+void cleanupOldestLog();
+bool ensureSpaceForLog(size_t requiredBytes);
 
 /**
  * @brief Get current tariff rate based on time of day
@@ -413,6 +415,16 @@ String saveLogToFile() {
     return "";
   }
 
+  // Estimate file size: header + data rows
+  // Each row: ~40 bytes (timestamp,power,energy,cost\n)
+  size_t estimatedSize = 100 + (powerLogCount * 40);
+  
+  // Ensure sufficient space, auto-cleanup if needed
+  if (!ensureSpaceForLog(estimatedSize)) {
+    Serial.println("Insufficient space for log file!");
+    return "";
+  }
+
   // Generate filename with timestamp
   time_t now;
   time(&now);
@@ -467,6 +479,64 @@ bool deleteLogFile(const String& filename) {
   
   Serial.printf("Failed to delete: %s\n", filename.c_str());
   return false;
+}
+
+/**
+ * @brief Delete oldest log file to free up space
+ */
+void cleanupOldestLog() {
+  File root = SPIFFS.open("/");
+  File oldestFile;
+  time_t oldestTime = LONG_MAX;
+  String oldestFilename;
+  
+  File file = root.openNextFile();
+  while (file) {
+    String filename = String(file.name());
+    if (filename.startsWith("/log_") && filename.endsWith(".csv")) {
+      time_t fileTime = file.getLastWrite();
+      if (fileTime < oldestTime) {
+        oldestTime = fileTime;
+        oldestFilename = filename;
+      }
+    }
+    file = root.openNextFile();
+  }
+  
+  if (oldestFilename.length() > 0) {
+    Serial.printf("Auto-cleanup: Deleting oldest log %s\n", oldestFilename.c_str());
+    deleteLogFile(oldestFilename);
+  }
+}
+
+/**
+ * @brief Ensure sufficient space for new log, cleanup if needed
+ * @param requiredBytes Estimated bytes needed for new log
+ * @return true if space available or freed
+ */
+bool ensureSpaceForLog(size_t requiredBytes) {
+  size_t freeBytes = SPIFFS.totalBytes() - SPIFFS.usedBytes();
+  
+  // Keep at least 50KB safety margin
+  const size_t safetyMargin = 50 * 1024;
+  
+  while (freeBytes < (requiredBytes + safetyMargin)) {
+    Serial.printf("Low space: %u bytes free, need %u + %u margin\n", 
+                  freeBytes, requiredBytes, safetyMargin);
+    
+    // Try to free space by deleting oldest log
+    size_t beforeCleanup = freeBytes;
+    cleanupOldestLog();
+    freeBytes = SPIFFS.totalBytes() - SPIFFS.usedBytes();
+    
+    // If no space was freed, we've deleted all logs
+    if (freeBytes == beforeCleanup) {
+      Serial.println("No more logs to delete!");
+      return freeBytes >= requiredBytes;
+    }
+  }
+  
+  return true;
 }
 
 /**

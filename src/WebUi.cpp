@@ -538,6 +538,24 @@ void startWebServer()
         server.send(200, "text/plain", "log interval saved"); });
 
     // File management endpoints
+    server.on("/api/files/status", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        size_t totalBytes = SPIFFS.totalBytes();
+        size_t usedBytes = SPIFFS.usedBytes();
+        size_t freeBytes = totalBytes - usedBytes;
+        float usedPercent = (float)usedBytes / totalBytes * 100.0f;
+        
+        String json = "{";
+        json += "\"total\":" + String(totalBytes) + ",";
+        json += "\"used\":" + String(usedBytes) + ",";
+        json += "\"free\":" + String(freeBytes) + ",";
+        json += "\"usedPercent\":" + String(usedPercent, 1);
+        json += "}";
+        
+        server.send(200, "application/json", json); });
+
     server.on("/api/files/list", HTTP_GET, []()
               {
         if (!checkAuth()) return;

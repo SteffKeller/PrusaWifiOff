@@ -321,6 +321,20 @@
           </button>
         </div>
 
+        <!-- Storage Status Bar -->
+        <div class='mb-3'>
+          <div class='d-flex justify-content-between small mb-1'>
+            <span class='text-muted'>SPIFFS Storage</span>
+            <span id='storageInfo' class='fw-semibold'>Loading...</span>
+          </div>
+          <div class='progress' style='height:8px;background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.3);border-radius:4px;'>
+            <div id='storageBar' class='progress-bar' role='progressbar' style='width:0%;background:linear-gradient(90deg,#10B981,#F96831);border-radius:3px;'></div>
+          </div>
+          <div id='storageWarning' class='alert alert-warning small mt-2' style='display:none;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;'>
+            <i class='bi bi-exclamation-triangle'></i> <span id='storageWarningText'></span>
+          </div>
+        </div>
+
         <div id='fileList' class='small'>
           <div class='text-muted text-center py-3'>
             <i class='bi bi-hourglass-split'></i> Loading files...
