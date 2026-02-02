@@ -169,6 +169,30 @@
           </button>
         </div>
 
+        <!-- Auto-Logging Settings -->
+        <div class='mt-3 mb-3 pb-3' style='border-top:1px solid rgba(148,163,184,0.2); padding-top:1rem;'>
+          <div class='fw-semibold small mb-2'><i class='bi bi-lightning-charge-fill'></i> Auto-Logging Settings</div>
+          <div class='form-check form-switch mb-2'>
+            <input class='form-check-input' type='checkbox' id='autoLogEnabled'>
+            <label class='form-check-label small' for='autoLogEnabled'>
+              Enable automatic logging when power exceeds threshold
+            </label>
+          </div>
+          <div class='mb-2'>
+            <label class='status-label small'>Power Threshold (W)</label>
+            <input id='autoLogThreshold' type='number' step='1' min='1' max='500' class='form-control form-control-sm' placeholder='5' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            <div class='small text-muted mt-1'>Start logging when power exceeds this value</div>
+          </div>
+          <div class='mb-2'>
+            <label class='status-label small'>Debounce Time (seconds)</label>
+            <input id='autoLogDebounce' type='number' step='5' min='5' max='300' class='form-control form-control-sm' placeholder='30' style='background:rgba(15,23,42,0.9);border:1px solid rgba(148,163,184,0.6);color:#e5e7eb;'>
+            <div class='small text-muted mt-1'>Wait time before auto-start/stop (avoids false triggers)</div>
+          </div>
+          <button id='btnSaveAutoLog' class='btn btn-pill btn-sm btn-outline-light w-100 btn-icon' type='button'>
+            <i class='bi bi-check-lg'></i> Save Auto-Log Settings
+          </button>
+        </div>
+
         <div id='logStats' class='small text-muted mb-3' style='display:none;'>
           <div class='d-flex justify-content-between'>
             <span>Data points:</span>

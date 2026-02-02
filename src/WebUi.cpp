@@ -56,6 +56,13 @@ extern String currency;
 extern int tariffSwitchHour;
 extern int tariffSwitchEndHour;
 
+// Auto-logging settings externals
+extern bool autoLogEnabled;
+extern float autoLogThreshold;
+extern uint32_t autoLogDebounce;
+extern uint32_t autoLogAboveMs;
+extern uint32_t autoLogBelowMs;
+
 // Authentication credentials (stored in NVS)
 String authUsername = "admin";
 String authPassword = "prusa";
@@ -431,6 +438,60 @@ void startWebServer()
         if (changed) {
           saveTariffSettings();
           server.send(200, "text/plain", "tariff settings saved");
+        } else {
+          server.send(400, "text/plain", "no parameters provided");
+        } });
+
+    // Auto-logging settings endpoints
+    server.on("/api/autolog_get", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        String json = "{";
+        json += "\"enabled\":" + String(autoLogEnabled ? "true" : "false") + ",";
+        json += "\"threshold\":" + String(autoLogThreshold, 1) + ",";
+        json += "\"debounce\":" + String(autoLogDebounce);
+        json += "}";
+        server.send(200, "application/json", json); });
+
+    server.on("/api/autolog_set", HTTP_GET, []()
+              {
+        if (!checkAuth()) return;
+        
+        bool changed = false;
+        
+        if (server.hasArg("enabled")) {
+          autoLogEnabled = (server.arg("enabled") == "true" || server.arg("enabled") == "1");
+          changed = true;
+        }
+        if (server.hasArg("threshold")) {
+          autoLogThreshold = server.arg("threshold").toFloat();
+          if (autoLogThreshold < 0.1f) autoLogThreshold = 0.1f;
+          if (autoLogThreshold > 500.0f) autoLogThreshold = 500.0f;
+          changed = true;
+        }
+        if (server.hasArg("debounce")) {
+          autoLogDebounce = server.arg("debounce").toInt();
+          if (autoLogDebounce < 5) autoLogDebounce = 5;
+          if (autoLogDebounce > 300) autoLogDebounce = 300;
+          changed = true;
+        }
+        
+        if (changed) {
+          Preferences prefs;
+          prefs.begin("coreone", false);
+          prefs.putBool("autolog_en", autoLogEnabled);
+          prefs.putFloat("autolog_th", autoLogThreshold);
+          prefs.putUInt("autolog_db", autoLogDebounce);
+          prefs.end();
+          
+          Serial.printf("Auto-logging settings saved: %s, %.1fW, %us\n",
+                       autoLogEnabled ? "ON" : "OFF", autoLogThreshold, autoLogDebounce);
+          
+          // Reset debounce timers
+          autoLogAboveMs = 0;
+          autoLogBelowMs = 0;
+          
+          server.send(200, "text/plain", "autolog settings saved");
         } else {
           server.send(400, "text/plain", "no parameters provided");
         } });

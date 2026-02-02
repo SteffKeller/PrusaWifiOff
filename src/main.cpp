@@ -109,6 +109,13 @@ String currency = "EUR";       ///< Currency symbol (EUR, USD, GBP, etc.)
 int tariffSwitchHour = 22;     ///< Hour when low tariff starts (22:00 = 10 PM)
 int tariffSwitchEndHour = 6;   ///< Hour when low tariff ends (06:00 = 6 AM)
 
+// Auto-logging settings (stored in NVS)
+bool autoLogEnabled = false;   ///< Auto-start logging when power exceeds threshold
+float autoLogThreshold = 5.0f; ///< Power threshold in watts (default 5W)
+uint32_t autoLogDebounce = 30; ///< Debounce time in seconds (default 30s)
+uint32_t autoLogAboveMs = 0;   ///< Timestamp when power first exceeded threshold
+uint32_t autoLogBelowMs = 0;   ///< Timestamp when power first dropped below threshold
+
 // Forward declarations
 void ensureWifi();
 void sendGet(const String& url);
@@ -118,6 +125,7 @@ void sendToggle();
 void updateReportStatus();
 void startLogging();
 void stopLogging();
+void checkAutoLogging();
 void clearLog();
 void logPowerData();
 float getCurrentTariff();
@@ -163,10 +171,15 @@ void loadTariffSettings() {
   currency = prefs.getString("currency", "EUR");
   tariffSwitchHour = prefs.getInt("tariff_start", 22);
   tariffSwitchEndHour = prefs.getInt("tariff_end", 6);
+  autoLogEnabled = prefs.getBool("autolog_en", false);
+  autoLogThreshold = prefs.getFloat("autolog_th", 5.0f);
+  autoLogDebounce = prefs.getUInt("autolog_db", 30);
   prefs.end();
   
   Serial.printf("Loaded tariffs: High=%.4f, Low=%.4f %s, Period=%02d:00-%02d:00\n", 
                 tariffHigh, tariffLow, currency.c_str(), tariffSwitchHour, tariffSwitchEndHour);
+  Serial.printf("Auto-logging: %s, Threshold=%.1fW, Debounce=%us\n",
+                autoLogEnabled ? "ON" : "OFF", autoLogThreshold, autoLogDebounce);
 }
 
 /**
@@ -327,6 +340,47 @@ void stopLogging() {
 }
 
 /**
+ * @brief Check auto-logging conditions and start/stop as needed
+ */
+void checkAutoLogging() {
+  if (!autoLogEnabled || !reportValid) return;
+  
+  const uint32_t now = millis();
+  const uint32_t debounceMs = autoLogDebounce * 1000UL;
+  
+  if (reportPower > autoLogThreshold) {
+    // Power is above threshold
+    autoLogBelowMs = 0;  // Reset below counter
+    
+    if (autoLogAboveMs == 0) {
+      autoLogAboveMs = now;  // Start counting
+    } else if (!loggingEnabled && (now - autoLogAboveMs >= debounceMs)) {
+      // Power has been above threshold for debounce time - start logging
+      Serial.printf("Auto-logging START: Power %.1fW > %.1fW for %us\n", 
+                    reportPower, autoLogThreshold, autoLogDebounce);
+      startLogging();
+      autoLogAboveMs = 0;  // Reset for next cycle
+    }
+  } else {
+    // Power is below or at threshold
+    autoLogAboveMs = 0;  // Reset above counter
+    
+    if (loggingEnabled) {
+      // We're logging, check if we should stop
+      if (autoLogBelowMs == 0) {
+        autoLogBelowMs = now;  // Start counting
+      } else if (now - autoLogBelowMs >= debounceMs) {
+        // Power has been below threshold for debounce time - stop logging
+        Serial.printf("Auto-logging STOP: Power %.1fW <= %.1fW for %us\n",
+                      reportPower, autoLogThreshold, autoLogDebounce);
+        stopLogging();
+        autoLogBelowMs = 0;  // Reset for next cycle
+      }
+    }
+  }
+}
+
+/**
  * @brief Clear all logged data
  */
 void clearLog() {
@@ -484,6 +538,9 @@ void loop() {
     lastReportPollMs = now;
     updateReportStatus();
   }
+  
+  // Check auto-logging conditions
+  checkAutoLogging();
 
   ModeClickEvent evt = chkModeButton();
   if (evt == ModeSingleClick) {

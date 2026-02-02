@@ -178,6 +178,10 @@ class UIController {
       btnStartLog: document.getElementById('btnStartLog'),
       btnStopLog: document.getElementById('btnStopLog'),
       btnClearLog: document.getElementById('btnClearLog'),
+      btnSaveAutoLog: document.getElementById('btnSaveAutoLog'),
+      autoLogEnabled: document.getElementById('autoLogEnabled'),
+      autoLogThreshold: document.getElementById('autoLogThreshold'),
+      autoLogDebounce: document.getElementById('autoLogDebounce'),
       tariffHigh: document.getElementById('tariffHigh'),
       tariffLow: document.getElementById('tariffLow'),
       tariffCurrency: document.getElementById('tariffCurrency'),
@@ -235,6 +239,10 @@ class UIController {
     
     if (this.elements.btnClearLog) {
       this.elements.btnClearLog.addEventListener('click', () => this.clearLog());
+    }
+    
+    if (this.elements.btnSaveAutoLog) {
+      this.elements.btnSaveAutoLog.addEventListener('click', () => this.saveAutoLog());
     }
     
     if (this.elements.timerSlider) {
@@ -504,6 +512,52 @@ class UIController {
       alert('Tariff settings saved successfully!');
     } catch (error) {
       alert('Failed to save tariff settings: ' + error.message);
+    }
+  }
+
+  async saveAutoLog() {
+    const enabled = this.elements.autoLogEnabled.checked ? 1 : 0;
+    const threshold = this.elements.autoLogThreshold.value;
+    const debounce = this.elements.autoLogDebounce.value;
+    
+    if (!threshold || !debounce) {
+      alert('Please fill in all auto-logging fields');
+      return;
+    }
+    
+    if (parseFloat(threshold) < 0) {
+      alert('Threshold must be a positive number');
+      return;
+    }
+    
+    if (parseInt(debounce) < 0) {
+      alert('Debounce time must be a positive number');
+      return;
+    }
+    
+    try {
+      const url = `/api/autolog_set?enabled=${enabled}&threshold=${encodeURIComponent(threshold)}&debounce=${encodeURIComponent(debounce)}`;
+      await this.api.request(url);
+      alert('Auto-logging settings saved successfully!');
+    } catch (error) {
+      alert('Failed to save auto-logging settings: ' + error.message);
+    }
+  }
+
+  async loadAutoLog() {
+    try {
+      const data = await this.api.request('/api/autolog_get');
+      if (data.enabled !== undefined) {
+        this.elements.autoLogEnabled.checked = data.enabled === 1;
+      }
+      if (data.threshold !== undefined) {
+        this.elements.autoLogThreshold.value = data.threshold;
+      }
+      if (data.debounce !== undefined) {
+        this.elements.autoLogDebounce.value = data.debounce;
+      }
+    } catch (error) {
+      console.error('Failed to load auto-logging settings:', error);
     }
   }
 
@@ -917,6 +971,7 @@ class Application {
       this.powerGraph.init();
       this.logStatus.start();
       await this.tariffManager.load();
+      await this.uiController.loadAutoLog();
       
       console.log('[App] ✓ Application ready');
     } catch (error) {
