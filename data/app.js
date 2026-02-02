@@ -516,7 +516,7 @@ class UIController {
   }
 
   async saveAutoLog() {
-    const enabled = this.elements.autoLogEnabled.checked ? 1 : 0;
+    const enabled = this.elements.autoLogEnabled.checked ? '1' : '0';
     const threshold = this.elements.autoLogThreshold.value;
     const debounce = this.elements.autoLogDebounce.value;
     
@@ -537,18 +537,20 @@ class UIController {
     
     try {
       const url = `/api/autolog_set?enabled=${enabled}&threshold=${encodeURIComponent(threshold)}&debounce=${encodeURIComponent(debounce)}`;
-      await this.api.request(url);
+      await this.api.call(url);
+      console.log('[UI] Auto-logging saved');
       alert('Auto-logging settings saved successfully!');
     } catch (error) {
+      console.error('[UI] Failed to save auto-logging:', error);
       alert('Failed to save auto-logging settings: ' + error.message);
     }
   }
 
   async loadAutoLog() {
     try {
-      const data = await this.api.request('/api/autolog_get');
+      const data = await this.api.getJson('/api/autolog_get');
       if (data.enabled !== undefined) {
-        this.elements.autoLogEnabled.checked = data.enabled === 1;
+        this.elements.autoLogEnabled.checked = data.enabled;
       }
       if (data.threshold !== undefined) {
         this.elements.autoLogThreshold.value = data.threshold;
@@ -556,8 +558,9 @@ class UIController {
       if (data.debounce !== undefined) {
         this.elements.autoLogDebounce.value = data.debounce;
       }
+      console.log('[UI] Auto-logging settings loaded:', data);
     } catch (error) {
-      console.error('Failed to load auto-logging settings:', error);
+      console.error('[UI] Failed to load auto-logging settings:', error);
     }
   }
 
@@ -792,8 +795,22 @@ class PowerGraph {
           },
           y2: {
             type: 'linear',
-            display: false,
-            position: 'right'
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Cost',
+              color: '#10B981'
+            },
+            ticks: {
+              color: '#10B981',
+              callback: function(value) {
+                return value.toFixed(4);
+              }
+            },
+            grid: {
+              drawOnChartArea: false
+            }
           }
         }
       }
@@ -801,6 +818,7 @@ class PowerGraph {
 
     console.log('[Graph] Chart initialized');
     this.startAutoUpdate();
+    this.updateCurrencyLabel();
   }
 
   async update() {
@@ -845,6 +863,20 @@ class PowerGraph {
     if (this.timerId) {
       clearInterval(this.timerId);
       this.timerId = null;
+    }
+  }
+
+  async updateCurrencyLabel() {
+    if (!this.chart) return;
+    
+    try {
+      const tariff = await this.api.getJson('/api/tariff_get');
+      if (this.chart.options.scales.y2) {
+        this.chart.options.scales.y2.title.text = `Cost (${tariff.currency})`;
+        this.chart.update('none');
+      }
+    } catch (error) {
+      console.error('[Graph] Failed to update currency label:', error);
     }
   }
 
@@ -942,6 +974,11 @@ class TariffManager {
       if (elements.tariffEndHour) elements.tariffEndHour.value = data.end_hour;
       
       console.log('[Tariff] Settings loaded');
+      
+      // Update graph currency label
+      if (window.app && window.app.powerGraph) {
+        window.app.powerGraph.updateCurrencyLabel();
+      }
     } catch (error) {
       console.error('[Tariff] Failed to load settings:', error);
     }
@@ -971,7 +1008,7 @@ class Application {
       this.powerGraph.init();
       this.logStatus.start();
       await this.tariffManager.load();
-      await this.uiController.loadAutoLog();
+      await this.ui.loadAutoLog();
       
       console.log('[App] ✓ Application ready');
     } catch (error) {
@@ -995,6 +1032,7 @@ let app;
 document.addEventListener('DOMContentLoaded', () => {
   try {
     app = new Application();
+    window.app = app;
     app.init();
   } catch (error) {
     console.error('[Bootstrap] Failed:', error);
